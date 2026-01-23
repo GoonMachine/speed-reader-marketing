@@ -64,19 +64,34 @@ async function renderVideo() {
     console.log("");
 
     // Extract article from backend
-    const { title, content, wordCount } = await extractArticle(articleUrl);
+    let { title, content, wordCount } = await extractArticle(articleUrl);
 
-    // Calculate video duration
+    // Limit video to just under 2 minutes for Twitter free tier (2:20 max, we'll do 1:55 to be safe)
+    const MAX_VIDEO_SECONDS = 115;
     const msPerWord = 60000 / wpm;
-    const readingTimeSeconds = (wordCount * msPerWord) / 1000;
-    const OUTRO_SECONDS = 5;
-    const totalSeconds = readingTimeSeconds + OUTRO_SECONDS;
     const fps = 30;
+    const wordsToSubtract = 12; // Will subtract these later for clean ending
+    const maxWords = Math.floor((MAX_VIDEO_SECONDS) * wpm / 60);
+
+    // Truncate if needed
+    if (wordCount > maxWords) {
+      console.log("");
+      console.log(`⚠️  Article is ${wordCount} words, truncating to ${maxWords} words for ${MAX_VIDEO_SECONDS}s video limit`);
+      const words = content.split(/\s+/);
+      content = words.slice(0, maxWords).join(' ') + '...';
+      wordCount = maxWords;
+    }
+
+    // Calculate video duration - cut early based on WPM to keep last word visible
+    // Subtract ~10-15 words worth of time so video ends while word is still on screen
+    const effectiveWordCount = Math.max(1, wordCount - wordsToSubtract);
+    const readingTimeSeconds = (effectiveWordCount * msPerWord) / 1000;
+    const totalSeconds = readingTimeSeconds;
     const durationInFrames = Math.ceil(totalSeconds * fps);
 
     console.log("");
     console.log(`⚡ Speed: ${wpm} WPM`);
-    console.log(`⏱️  Duration: ${Math.ceil(totalSeconds)}s (${Math.ceil(readingTimeSeconds)}s reading + ${OUTRO_SECONDS}s outro)`);
+    console.log(`⏱️  Duration: ${Math.ceil(totalSeconds)}s (cuts early to keep last word visible)`);
     console.log("");
 
     // Bundle Remotion project
@@ -89,7 +104,7 @@ async function renderVideo() {
     // Select composition
     const composition = await selectComposition({
       serveUrl: bundleLocation,
-      id: "RSVPDemo",
+      id: "RSVPiPhone",
       inputProps: {
         articleText: content,
         wpm,

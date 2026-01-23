@@ -1,0 +1,8 @@
+{
+  "buildCommand": "pnpm build",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
+  "env": {
+    "BACKEND_URL": "@backend_url"
+  }
+}

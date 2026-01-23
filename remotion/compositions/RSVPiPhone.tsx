@@ -74,21 +74,26 @@ export const RSVPiPhone: React.FC<RSVPiPhoneProps> = ({
       <div
         style={{
           position: "absolute",
-          left: screenX,
-          top: screenY + 70,
-          width: screenWidth,
+          left: screenX + 60,
+          top: screenY + 40,
+          width: screenWidth - 120,
           textAlign: "center",
         }}
       >
         <h1
           style={{
-            fontSize: 20,
+            fontSize: 16,
             fontWeight: 600,
             color: "#FAFAFA",
             margin: 0,
+            lineHeight: "1.4",
+            fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', system-ui, sans-serif",
+            wordWrap: "break-word",
+            whiteSpace: "normal",
             overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
           }}
         >
           {title}
