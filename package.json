@@ -1,0 +1,31 @@
+{
+  "name": "speed-reader-marketing",
+  "version": "1.0.0",
+  "description": "Automated video generation and X (Twitter) posting for Speed Reader marketing",
+  "private": true,
+  "scripts": {
+    "render": "tsx scripts/render-demo.ts",
+    "render:iphone": "REMOTION_COMPOSITION=RSVPiPhone tsx scripts/render-demo.ts",
+    "render:url": "tsx scripts/render-from-url.ts",
+    "post": "tsx scripts/reply-to-x-api.ts"
+  },
+  "dependencies": {
+    "@remotion/bundler": "^4.0.409",
+    "@remotion/cli": "^4.0.409",
+    "@remotion/renderer": "^4.0.409",
+    "@trpc/client": "11.7.2",
+    "axios": "^1.13.2",
+    "dotenv": "^16.6.1",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "remotion": "^4.0.409",
+    "superjson": "^1.13.3",
+    "zod": "^4.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.3",
+    "@types/react": "~19.1.17",
+    "tsx": "^4.21.0",
+    "typescript": "~5.9.3"
+  }
+}
