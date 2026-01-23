@@ -293,26 +293,31 @@ async function main() {
     const mediaId = await uploadVideo(videoPath);
     console.log("");
 
-    // Reply messages (same as browser automation)
+    // Reply messages - 80% of the time post with no text, 20% use one of these
     const replyMessages = [
-      "here's a short snippet of your article, speed read",
-      "quick speed read of part of your article",
-      "here's a small part of your article, speed read",
-      "speed reading a snippet of your post",
-      "short speed read excerpt from your article",
-      "here's just a snippet of your article, speed read",
+      "for the zoomers",
+      "gotta go fast",
+      "new speed read banger dropped",
+      "congrats bro",
+      "i aint reading all that, but i am speed reading it.",
+      "ooo weee i'm speed reading",
     ];
 
-    const indexFilePath = path.join(process.cwd(), ".reply-message-index");
-    let messageIndex = 0;
-    if (fs.existsSync(indexFilePath)) {
-      const savedIndex = parseInt(fs.readFileSync(indexFilePath, "utf8"), 10);
-      messageIndex = (savedIndex + 1) % replyMessages.length;
-    }
-    fs.writeFileSync(indexFilePath, messageIndex.toString(), "utf8");
+    // 80% chance of no text (just video)
+    const useText = Math.random() > 0.8;
+    let replyText = "";
 
-    const replyText = replyMessages[messageIndex];
-    console.log(`📝 Reply text: "${replyText}"`);
+    if (useText) {
+      const indexFilePath = path.join(process.cwd(), ".reply-message-index");
+      let messageIndex = 0;
+      if (fs.existsSync(indexFilePath)) {
+        const savedIndex = parseInt(fs.readFileSync(indexFilePath, "utf8"), 10);
+        messageIndex = (savedIndex + 1) % replyMessages.length;
+      }
+      fs.writeFileSync(indexFilePath, messageIndex.toString(), "utf8");
+      replyText = replyMessages[messageIndex];
+    }
+    console.log(`📝 Reply text: ${replyText ? `"${replyText}"` : "(video only, no text)"}`);
     console.log("");
 
     // Post reply
