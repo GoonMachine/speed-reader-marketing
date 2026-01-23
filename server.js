@@ -84,7 +84,6 @@ app.post('/api/render', async (req, res) => {
 
     // Calculate video duration - cut early based on WPM to keep last word visible
     // Subtract ~10-15 words worth of time so video ends while word is still on screen
-    const wordsToSubtract = 12;
     const effectiveWordCount = Math.max(1, wordCount - wordsToSubtract);
     const readingTimeSeconds = (effectiveWordCount * msPerWord) / 1000;
     const totalSeconds = readingTimeSeconds;
