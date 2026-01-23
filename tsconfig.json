@@ -27,13 +27,15 @@
     ]
   },
   "include": [
-    "remotion/**/*",
-    "scripts/**/*",
-    "lib/**/*",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts"
+    "app/**/*",
+    "next-env.d.ts",
+    ".next/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "remotion",
+    "scripts",
+    "lib",
+    "server.js"
   ]
 }
