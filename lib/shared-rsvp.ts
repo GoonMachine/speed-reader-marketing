@@ -44,17 +44,28 @@ export function calculateWordDelay(wpm: number): number {
  * Tokenize text into words suitable for RSVP display.
  * Handles punctuation, numbers, and special characters.
  * Filters out standalone punctuation and paragraph markers.
+ * Splits hyphenated words for better display (e.g., "bank-fintech" → ["bank-", "fintech"])
  */
 export function tokenizeText(text: string): string[] {
   if (!text) return [];
   return text
     .replace(/\n+/g, " ")
     .split(/\s+/)
+    .flatMap((word) => {
+      // Split hyphenated words (keep hyphen with first part)
+      if (word.includes('-') && word.length > 3) {
+        const parts = word.split('-');
+        return parts.map((part, i) =>
+          i < parts.length - 1 ? part + '-' : part
+        ).filter(p => p.length > 0);
+      }
+      return [word];
+    })
     .map((word) => word.trim())
     .filter((word) => {
       // Filter out empty strings
       if (word.length === 0) return false;
-      // Filter out standalone punctuation and symbols
+      // Filter out standalone punctuation and symbols (but allow hyphens as part of words)
       // Keep words that have at least one letter or number
       if (!/[a-zA-Z0-9]/.test(word)) return false;
       // Filter out paragraph markers
