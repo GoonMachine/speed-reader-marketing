@@ -52,12 +52,16 @@ export function tokenizeText(text: string): string[] {
     .replace(/\n+/g, " ")
     .split(/\s+/)
     .flatMap((word) => {
-      // Split hyphenated words (keep hyphen with first part)
-      if (word.includes('-') && word.length > 3) {
-        const parts = word.split('-');
-        return parts.map((part, i) =>
-          i < parts.length - 1 ? part + '-' : part
-        ).filter(p => p.length > 0);
+      // Split on any type of dash: hyphen (-), en-dash (–), em-dash (—)
+      if (/[-–—]/.test(word) && word.length > 1) {
+        const parts = word.split(/[-–—]/);
+        return parts.map((part, i) => {
+          if (i < parts.length - 1) {
+            // Add a space instead of keeping the dash to avoid display issues
+            return part;
+          }
+          return part;
+        }).filter(p => p.length > 0);
       }
       return [word];
     })
@@ -65,7 +69,7 @@ export function tokenizeText(text: string): string[] {
     .filter((word) => {
       // Filter out empty strings
       if (word.length === 0) return false;
-      // Filter out standalone punctuation and symbols (but allow hyphens as part of words)
+      // Filter out standalone punctuation and symbols
       // Keep words that have at least one letter or number
       if (!/[a-zA-Z0-9]/.test(word)) return false;
       // Filter out paragraph markers
