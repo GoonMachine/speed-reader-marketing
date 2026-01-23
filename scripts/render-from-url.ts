@@ -64,30 +64,27 @@ async function renderVideo() {
     console.log("");
 
     // Extract article from backend
-    let { title, content, wordCount } = await extractArticle(articleUrl);
+    const { title, content, wordCount } = await extractArticle(articleUrl);
 
     // Limit video to just under 2 minutes for Twitter free tier (2:20 max, we'll do 1:55 to be safe)
     const MAX_VIDEO_SECONDS = 115;
     const msPerWord = 60000 / wpm;
     const fps = 30;
     const wordsToSubtract = 12; // Will subtract these later for clean ending
-    const maxWords = Math.floor((MAX_VIDEO_SECONDS) * wpm / 60);
 
-    // Truncate if needed
-    if (wordCount > maxWords) {
-      console.log("");
-      console.log(`⚠️  Article is ${wordCount} words, truncating to ${maxWords} words for ${MAX_VIDEO_SECONDS}s video limit`);
-      const words = content.split(/\s+/);
-      content = words.slice(0, maxWords).join(' ') + '...';
-      wordCount = maxWords;
-    }
+    // Calculate how many words we can fit in the max duration
+    const maxWordsForDuration = Math.floor((MAX_VIDEO_SECONDS) * wpm / 60);
 
-    // Calculate video duration - cut early based on WPM to keep last word visible
-    // Subtract ~10-15 words worth of time so video ends while word is still on screen
-    const effectiveWordCount = Math.max(1, wordCount - wordsToSubtract);
+    // Use the minimum of article length or max duration
+    const effectiveWordCount = Math.max(1, Math.min(wordCount, maxWordsForDuration) - wordsToSubtract);
     const readingTimeSeconds = (effectiveWordCount * msPerWord) / 1000;
     const totalSeconds = readingTimeSeconds;
     const durationInFrames = Math.ceil(totalSeconds * fps);
+
+    if (wordCount > maxWordsForDuration) {
+      console.log("");
+      console.log(`⚠️  Article is ${wordCount} words, video will show first ~${maxWordsForDuration} words (${Math.ceil(totalSeconds)}s limit)`);
+    }
 
     console.log("");
     console.log(`⚡ Speed: ${wpm} WPM`);
