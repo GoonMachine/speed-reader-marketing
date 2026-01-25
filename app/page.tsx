@@ -6,6 +6,7 @@ export default function Home() {
   const [articleUrl, setArticleUrl] = useState('');
   const [replyToUrl, setReplyToUrl] = useState('');
   const [wpm, setWpm] = useState('500');
+  const [composition, setComposition] = useState('random');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState('');
@@ -26,6 +27,7 @@ export default function Home() {
           articleUrl,
           replyToUrl,
           wpm: parseInt(wpm),
+          composition: composition !== 'random' ? composition : undefined,
         }),
       });
 
@@ -135,7 +137,7 @@ export default function Home() {
             </p>
           </div>
 
-          <div style={{ marginBottom: '32px' }}>
+          <div style={{ marginBottom: '24px' }}>
             <label style={{
               display: 'block',
               fontSize: '14px',
@@ -163,6 +165,77 @@ export default function Home() {
                 outline: 'none',
               }}
             />
+          </div>
+
+          <div style={{ marginBottom: '32px' }}>
+            <label style={{
+              display: 'block',
+              fontSize: '14px',
+              fontWeight: '600',
+              color: '#fff',
+              marginBottom: '12px'
+            }}>
+              Video Template
+            </label>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => setComposition('random')}
+                style={{
+                  flex: '1 1 auto',
+                  padding: '12px 16px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  background: composition === 'random' ? '#E53935' : '#2a2a2a',
+                  color: '#fff',
+                  border: composition === 'random' ? '2px solid #E53935' : '2px solid #3a3a3a',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+              >
+                🎲 Random
+              </button>
+              <button
+                type="button"
+                onClick={() => setComposition('RSVPiPhoneZoom')}
+                style={{
+                  flex: '1 1 auto',
+                  padding: '12px 16px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  background: composition === 'RSVPiPhoneZoom' ? '#E53935' : '#2a2a2a',
+                  color: '#fff',
+                  border: composition === 'RSVPiPhoneZoom' ? '2px solid #E53935' : '2px solid #3a3a3a',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+              >
+                🔍 Zoom (Full)
+              </button>
+              <button
+                type="button"
+                onClick={() => setComposition('RSVPiPhoneWithOutro')}
+                style={{
+                  flex: '1 1 auto',
+                  padding: '12px 16px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  background: composition === 'RSVPiPhoneWithOutro' ? '#E53935' : '#2a2a2a',
+                  color: '#fff',
+                  border: composition === 'RSVPiPhoneWithOutro' ? '2px solid #E53935' : '2px solid #3a3a3a',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+              >
+                ⚡ Short (6.5s)
+              </button>
+            </div>
+            <p style={{ fontSize: '13px', color: '#666', marginTop: '8px' }}>
+              Zoom: Full article with zoom animation • Short: 6.5s teaser with outro
+            </p>
           </div>
 
           <button
@@ -205,14 +278,17 @@ export default function Home() {
             padding: '24px',
             background: '#1a2a1a',
             border: '1px solid #2a4a2a',
-            borderRadius: '8px',
+            borderRadius: '12px',
             color: '#6bff6b'
           }}>
             <h3 style={{ margin: '0 0 16px 0', fontSize: '18px', fontWeight: '600' }}>
-              Success!
+              ✅ Video Generated!
             </h3>
             <p style={{ margin: '8px 0', fontSize: '14px' }}>
               <strong>Title:</strong> {result.title}
+            </p>
+            <p style={{ margin: '8px 0', fontSize: '14px' }}>
+              <strong>Template:</strong> {result.composition || 'Random'}
             </p>
             <p style={{ margin: '8px 0', fontSize: '14px' }}>
               <strong>Words:</strong> {result.wordCount}
@@ -220,9 +296,45 @@ export default function Home() {
             <p style={{ margin: '8px 0', fontSize: '14px' }}>
               <strong>Duration:</strong> {result.duration}s
             </p>
-            <p style={{ margin: '8px 0', fontSize: '14px' }}>
-              <strong>Video:</strong> {result.outputPath}
-            </p>
+
+            {result.videoUrl && (
+              <div style={{ marginTop: '20px' }}>
+                <video
+                  src={result.videoUrl}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  style={{
+                    width: '100%',
+                    borderRadius: '8px',
+                    backgroundColor: '#000',
+                    marginBottom: '12px'
+                  }}
+                />
+                <a
+                  href={result.videoUrl}
+                  download={`speed-read-${Date.now()}.mp4`}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    padding: '14px',
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    background: '#E53935',
+                    color: '#fff',
+                    textAlign: 'center',
+                    textDecoration: 'none',
+                    borderRadius: '8px',
+                    transition: 'background 0.2s',
+                  }}
+                >
+                  📥 Download Video
+                </a>
+                <p style={{ fontSize: '12px', color: '#666', marginTop: '8px', textAlign: 'center' }}>
+                  📱 iOS: Tap and hold the video, then select "Save Video"
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>

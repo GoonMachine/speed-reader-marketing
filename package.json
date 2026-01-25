@@ -10,10 +10,18 @@
     "backend": "node server.js",
     "render": "tsx scripts/render-demo.ts",
     "render:iphone": "REMOTION_COMPOSITION=RSVPiPhone tsx scripts/render-demo.ts",
+    "render:iphone:zoom": "REMOTION_COMPOSITION=RSVPiPhoneZoom tsx scripts/render-demo.ts",
+    "render:outro": "REMOTION_COMPOSITION=RSVPiPhoneWithOutro tsx scripts/render-demo.ts",
     "render:url": "tsx scripts/render-from-url.ts",
-    "post": "tsx scripts/reply-to-x-api.ts"
+    "post": "tsx scripts/reply-to-x-api.ts",
+    "x:setup-local": "node setup-local-x-profile.js",
+    "x:find": "node find-articles.js",
+    "x:find:headless": "HEADLESS=true node find-articles.js",
+    "x:find:continuous": "HEADLESS=true node find-articles.js"
   },
   "dependencies": {
+    "@browserbasehq/sdk": "^2.6.0",
+    "@browserbasehq/stagehand": "^3.0.8",
     "@remotion/bundler": "^4.0.409",
     "@remotion/cli": "^4.0.409",
     "@remotion/renderer": "^4.0.409",
@@ -23,11 +31,12 @@
     "dotenv": "^16.6.1",
     "express": "^5.2.1",
     "next": "^16.1.4",
+    "playwright": "^1.58.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "remotion": "^4.0.409",
     "superjson": "^1.13.3",
-    "zod": "^4.2.1"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^22.19.3",

@@ -237,6 +237,120 @@ async function uploadVideo(filePath: string): Promise<string> {
   return mediaId;
 }
 
+async function getAuthenticatedUserId(): Promise<string> {
+  const baseUrl = "https://api.twitter.com/2/users/me";
+  const response = await fetch(baseUrl, {
+    method: "GET",
+    headers: {
+      Authorization: generateOAuthHeader("GET", baseUrl, {}),
+    },
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to get authenticated user ID: ${text}`);
+  }
+
+  const data = await response.json();
+  return data.data.id;
+}
+
+async function getTweetAuthorId(tweetId: string): Promise<string> {
+  const baseUrl = `https://api.twitter.com/2/tweets/${tweetId}`;
+  const params = { "expansions": "author_id" };
+  const url = `${baseUrl}?${new URLSearchParams(params).toString()}`;
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Authorization: generateOAuthHeader("GET", baseUrl, params),
+    },
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to get tweet author: ${text}`);
+  }
+
+  const data = await response.json();
+  return data.data.author_id;
+}
+
+async function likeTweet(userId: string, tweetId: string) {
+  console.log("❤️  Liking tweet...");
+
+  const url = `https://api.twitter.com/2/users/${userId}/likes`;
+  const payload = {
+    tweet_id: tweetId,
+  };
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: generateOAuthHeader("POST", url),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  // Log rate limit info
+  const rateLimitRemaining = response.headers.get("x-rate-limit-remaining");
+  const rateLimitReset = response.headers.get("x-rate-limit-reset");
+  if (rateLimitRemaining && rateLimitReset) {
+    const resetDate = new Date(parseInt(rateLimitReset) * 1000);
+    console.log(`   Rate limit: ${rateLimitRemaining} remaining (resets at ${resetDate.toLocaleTimeString()})`);
+  }
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Like failed: ${text}`);
+  }
+
+  const data = await response.json();
+  console.log("✅ Tweet liked successfully!");
+  return data;
+}
+
+async function followUser(sourceUserId: string, targetUserId: string) {
+  console.log("👤 Following user...");
+
+  const url = `https://api.twitter.com/2/users/${sourceUserId}/following`;
+  const payload = {
+    target_user_id: targetUserId,
+  };
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: generateOAuthHeader("POST", url),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  // Log rate limit info
+  const rateLimitRemaining = response.headers.get("x-rate-limit-remaining");
+  const rateLimitReset = response.headers.get("x-rate-limit-reset");
+  if (rateLimitRemaining && rateLimitReset) {
+    const resetDate = new Date(parseInt(rateLimitReset) * 1000);
+    console.log(`   Rate limit: ${rateLimitRemaining} remaining (resets at ${resetDate.toLocaleTimeString()})`);
+  }
+
+  if (!response.ok) {
+    const text = await response.text();
+    // Don't fail if already following
+    if (text.includes("already") || text.includes("You are already following")) {
+      console.log("ℹ️  Already following user");
+      return { already_following: true };
+    }
+    throw new Error(`Follow failed: ${text}`);
+  }
+
+  const data = await response.json();
+  console.log("✅ User followed successfully!");
+  return data;
+}
+
 async function replyWithVideo(tweetId: string, mediaId: string, replyText: string) {
   console.log("💬 Posting reply...");
 
@@ -287,6 +401,22 @@ async function main() {
     // Extract tweet ID
     const tweetId = extractTweetId(tweetUrl);
     console.log(`📝 Tweet ID: ${tweetId}`);
+    console.log("");
+
+    // Get user IDs
+    console.log("🔍 Getting user information...");
+    const myUserId = await getAuthenticatedUserId();
+    const authorId = await getTweetAuthorId(tweetId);
+    console.log(`   My user ID: ${myUserId}`);
+    console.log(`   Author ID: ${authorId}`);
+    console.log("");
+
+    // Like the tweet
+    await likeTweet(myUserId, tweetId);
+    console.log("");
+
+    // Follow the author (if not already following)
+    await followUser(myUserId, authorId);
     console.log("");
 
     // Upload video

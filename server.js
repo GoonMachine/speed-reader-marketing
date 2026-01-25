@@ -50,10 +50,28 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Rendering server is running' });
 });
 
+// Serve video files
+app.get('/api/video/:filename', (req, res) => {
+  const { filename } = req.params;
+  const videoPath = path.resolve(`./out/${filename}`);
+
+  // Security check: ensure filename is just a filename, not a path
+  if (filename.includes('..') || filename.includes('/')) {
+    return res.status(400).json({ error: 'Invalid filename' });
+  }
+
+  res.sendFile(videoPath, (err) => {
+    if (err) {
+      console.error('Error sending video:', err);
+      res.status(404).json({ error: 'Video not found' });
+    }
+  });
+});
+
 // Main rendering endpoint
 app.post('/api/render', async (req, res) => {
   try {
-    const { articleUrl, replyToUrl, wpm = 500 } = req.body;
+    const { articleUrl, replyToUrl, wpm = 500, composition } = req.body;
 
     if (!articleUrl) {
       return res.status(400).json({ error: 'Article URL is required' });
@@ -63,30 +81,77 @@ app.post('/api/render', async (req, res) => {
     console.log(`   Article: ${articleUrl}`);
     console.log(`   Reply to: ${replyToUrl || 'None'}`);
     console.log(`   Speed: ${wpm} WPM`);
+    if (composition) {
+      console.log(`   Template: ${composition}`);
+    }
 
     // Extract article from backend
     const { title, content, wordCount } = await extractArticle(articleUrl);
 
-    // Limit video to just under 2 minutes for Twitter free tier (2:20 max, we'll do 1:55 to be safe)
-    const MAX_VIDEO_SECONDS = 115;
-    const msPerWord = 60000 / wpm;
     const fps = 30;
-    const wordsToSubtract = 12; // Will subtract these later for clean ending
+
+    // Twitter free tier video limit: 2:20 max, we'll do 1:55 (115s) to be safe
+    const MAX_VIDEO_SECONDS = 115;
 
     // Calculate how many words we can fit in the max duration
-    const maxWordsForDuration = Math.floor((MAX_VIDEO_SECONDS) * wpm / 60);
+    const maxWordsForDuration = Math.floor(MAX_VIDEO_SECONDS * wpm / 60);
 
-    // Use the minimum of article length or max duration
-    const effectiveWordCount = Math.max(1, Math.min(wordCount, maxWordsForDuration) - wordsToSubtract);
-    const readingTimeSeconds = (effectiveWordCount * msPerWord) / 1000;
-    const totalSeconds = readingTimeSeconds;
-    const durationInFrames = Math.ceil(totalSeconds * fps);
+    // Define available compositions
+    const compositions = [
+      {
+        id: 'RSVPiPhoneZoom',
+        name: 'Zoom (no outro)',
+        useFullArticle: true,
+      },
+      {
+        id: 'RSVPiPhoneWithOutro',
+        name: 'With outro',
+        useFullArticle: false,
+        readingSeconds: 4,
+        totalSeconds: 6.5,
+      }
+    ];
 
-    if (wordCount > maxWordsForDuration) {
-      console.log(`⚠️  Article is ${wordCount} words, video will show first ~${maxWordsForDuration} words (${Math.ceil(totalSeconds)}s limit)`);
+    // Use specified composition or randomly choose
+    let selectedComp;
+    if (composition) {
+      selectedComp = compositions.find(c => c.id === composition);
+      if (!selectedComp) {
+        return res.status(400).json({ error: `Invalid composition: ${composition}` });
+      }
+      console.log(`🎯 Using selected template: ${selectedComp.name}`);
+    } else {
+      selectedComp = compositions[Math.floor(Math.random() * compositions.length)];
+      console.log(`🎲 Randomly selected: ${selectedComp.name}`);
     }
 
-    console.log(`📊 Video stats: ${wordCount} words in article, rendering ${Math.ceil(totalSeconds)}s video`);
+    let finalContent, finalWordCount, totalSeconds;
+    const words = content.split(/\s+/);
+
+    if (selectedComp.useFullArticle) {
+      // RSVPiPhoneZoom: Use full article, but cap at MAX_VIDEO_SECONDS
+      const cappedWordCount = Math.min(wordCount, maxWordsForDuration);
+      const truncatedWords = words.slice(0, cappedWordCount);
+      finalContent = truncatedWords.join(' ');
+      finalWordCount = cappedWordCount;
+      totalSeconds = (cappedWordCount / wpm) * 60;
+
+      if (wordCount > maxWordsForDuration) {
+        console.log(`📊 Video stats: ${wordCount} words in article, capped to ${cappedWordCount} words for ${totalSeconds.toFixed(1)}s video (max ${MAX_VIDEO_SECONDS}s)`);
+      } else {
+        console.log(`📊 Video stats: ${wordCount} words, ${totalSeconds.toFixed(1)}s video (full article)`);
+      }
+    } else {
+      // RSVPiPhoneWithOutro: Truncate to 4 seconds
+      const maxWordsForOutro = Math.floor((selectedComp.readingSeconds * wpm) / 60);
+      const truncatedWords = words.slice(0, maxWordsForOutro);
+      finalContent = truncatedWords.join(' ');
+      finalWordCount = maxWordsForOutro;
+      totalSeconds = selectedComp.totalSeconds;
+      console.log(`📊 Video stats: ${wordCount} words in article, using first ${maxWordsForOutro} words for 6.5s outro video`);
+    }
+
+    const durationInFrames = Math.ceil(totalSeconds * fps);
 
     console.log('📦 Bundling Remotion project...');
     // Bundle Remotion project
@@ -99,11 +164,12 @@ app.post('/api/render', async (req, res) => {
     // Select composition
     const composition = await selectComposition({
       serveUrl: bundleLocation,
-      id: 'RSVPiPhone',
+      id: selectedComp.id,
       inputProps: {
-        articleText: content,
+        articleText: finalContent,
         wpm,
         title,
+        totalWordCount: wordCount,
       },
     });
 
@@ -123,9 +189,10 @@ app.post('/api/render', async (req, res) => {
       codec: 'h264',
       outputLocation,
       inputProps: {
-        articleText: content,
+        articleText: finalContent,
         wpm,
         title,
+        totalWordCount: wordCount,
       },
     });
 
@@ -171,12 +238,18 @@ app.post('/api/render', async (req, res) => {
       }
     }
 
+    // Extract filename from output path
+    const filename = path.basename(outputLocation);
+    const videoUrl = `${process.env.BACKEND_URL || 'http://localhost:3001'}/api/video/${filename}`;
+
     res.json({
       success: true,
       title,
-      wordCount,
-      duration: Math.ceil(totalSeconds),
+      wordCount: finalWordCount,
+      duration: totalSeconds,
+      composition: selectedComp.name,
       outputPath: outputLocation,
+      videoUrl,
       posted,
     });
   } catch (error) {
