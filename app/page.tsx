@@ -18,7 +18,7 @@ export default function Home() {
     setResult(null);
 
     try {
-      const response = await fetch('/api/render', {
+      const response = await fetch('/api/queue', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -34,7 +34,7 @@ export default function Home() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to render video');
+        throw new Error(data.error || 'Failed to add to queue');
       }
 
       setResult(data);
@@ -254,7 +254,7 @@ export default function Home() {
               transition: 'background 0.2s',
             }}
           >
-            {loading ? 'Generating Video...' : 'Generate Video'}
+            {loading ? 'Adding to Queue...' : 'Add to Queue'}
           </button>
         </form>
 
@@ -282,59 +282,24 @@ export default function Home() {
             color: '#6bff6b'
           }}>
             <h3 style={{ margin: '0 0 16px 0', fontSize: '18px', fontWeight: '600' }}>
-              ✅ Video Generated!
+              ✅ Added to Queue!
             </h3>
             <p style={{ margin: '8px 0', fontSize: '14px' }}>
-              <strong>Title:</strong> {result.title}
+              <strong>Status:</strong> {result.message}
             </p>
-            <p style={{ margin: '8px 0', fontSize: '14px' }}>
-              <strong>Template:</strong> {result.composition || 'Random'}
-            </p>
-            <p style={{ margin: '8px 0', fontSize: '14px' }}>
-              <strong>Words:</strong> {result.wordCount}
-            </p>
-            <p style={{ margin: '8px 0', fontSize: '14px' }}>
-              <strong>Duration:</strong> {result.duration}s
-            </p>
-
-            {result.videoUrl && (
-              <div style={{ marginTop: '20px' }}>
-                <video
-                  src={result.videoUrl}
-                  controls
-                  playsInline
-                  preload="metadata"
-                  style={{
-                    width: '100%',
-                    borderRadius: '8px',
-                    backgroundColor: '#000',
-                    marginBottom: '12px'
-                  }}
-                />
-                <a
-                  href={result.videoUrl}
-                  download={`speed-read-${Date.now()}.mp4`}
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    padding: '14px',
-                    fontSize: '16px',
-                    fontWeight: '600',
-                    background: '#E53935',
-                    color: '#fff',
-                    textAlign: 'center',
-                    textDecoration: 'none',
-                    borderRadius: '8px',
-                    transition: 'background 0.2s',
-                  }}
-                >
-                  📥 Download Video
-                </a>
-                <p style={{ fontSize: '12px', color: '#666', marginTop: '8px', textAlign: 'center' }}>
-                  📱 iOS: Tap and hold the video, then select "Save Video"
+            {result.queueItem && (
+              <>
+                <p style={{ margin: '8px 0', fontSize: '14px' }}>
+                  <strong>Queue Position:</strong> #{result.queueItem.queuePosition}
                 </p>
-              </div>
+                <p style={{ margin: '8px 0', fontSize: '14px' }}>
+                  <strong>Scheduled Time:</strong> {new Date(result.queueItem.scheduledDate).toLocaleTimeString()}
+                </p>
+              </>
             )}
+            <p style={{ margin: '16px 0 0 0', fontSize: '13px', color: '#88c288' }}>
+              Your video will be generated and posted automatically at the scheduled time.
+            </p>
           </div>
         )}
       </div>
