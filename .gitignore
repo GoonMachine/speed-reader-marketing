@@ -6,6 +6,19 @@ node_modules/
 .env
 .env.local
 
+# X.com authentication (sensitive!)
+x-cookies.json
+x-context.json
+x-storage-state.json
+articles-found.json
+processed-urls.json
+queue.json
+
+# Local Chrome profile for X.com (contains login session data)
+chrome-profile-x/
+chrome-profile-article-finder/
+chrome-automation-profile/
+
 # Output videos
 out/
 
