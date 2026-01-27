@@ -74,7 +74,7 @@ app.use(express.json());
 
 // Queue management
 const QUEUE_FILE = path.join(__dirname, 'queue.json');
-const MIN_SPACING_MS = 5 * 60 * 1000; // 5 minutes between videos
+const MIN_SPACING_MS = 90 * 60 * 1000; // 1.5 hours between videos
 
 // Load queue from disk
 function loadQueue() {
@@ -127,6 +127,18 @@ function getNextAvailableSlot(queue) {
   return Math.max(nextSlot, now);
 }
 
+// Normalize URL (remove query params and trailing slashes for duplicate detection)
+function normalizeUrl(url) {
+  if (!url) return url;
+  try {
+    const urlObj = new URL(url);
+    // Keep only protocol, host, and pathname (no query, hash, or trailing slash)
+    return `${urlObj.protocol}//${urlObj.host}${urlObj.pathname}`.replace(/\/$/, '');
+  } catch (e) {
+    return url;
+  }
+}
+
 let queue = loadQueue();
 console.log(`📋 Loaded ${queue.length} items from queue`);
 
@@ -165,19 +177,39 @@ app.get('/health', (req, res) => {
 // Queue endpoint - Add article to queue
 app.post('/api/queue', async (req, res) => {
   try {
-    const { articleUrl, replyToUrl, wpm = 400, composition } = req.body;
+    const { articleUrl, replyToUrl, wpm = 400, composition, account = 'X2' } = req.body;
 
     if (!articleUrl) {
       return res.status(400).json({ error: 'Article URL is required' });
     }
 
-    // Check if article is already in queue or processed
-    if (queue.some(item => item.articleUrl === articleUrl)) {
+    // Normalize URL for duplicate checking
+    const normalizedUrl = normalizeUrl(articleUrl);
+
+    // Check if article is already in queue (compare normalized URLs)
+    if (queue.some(item => normalizeUrl(item.articleUrl) === normalizedUrl)) {
       return res.json({
         success: true,
         message: 'Article already in queue',
-        queuePosition: queue.findIndex(item => item.articleUrl === articleUrl) + 1,
+        queuePosition: queue.findIndex(item => normalizeUrl(item.articleUrl) === normalizedUrl) + 1,
       });
+    }
+
+    // Check if article was already processed
+    const processedUrlsPath = path.join(__dirname, "processed-urls.json");
+    try {
+      if (fs.existsSync(processedUrlsPath)) {
+        const data = JSON.parse(fs.readFileSync(processedUrlsPath, "utf8"));
+        const processedUrls = data.urls || [];
+        if (processedUrls.some(url => normalizeUrl(url) === normalizedUrl)) {
+          return res.json({
+            success: true,
+            message: 'Article already processed',
+          });
+        }
+      }
+    } catch (error) {
+      // Ignore error, proceed with queueing
     }
 
     // Calculate scheduled time
@@ -191,6 +223,7 @@ app.post('/api/queue', async (req, res) => {
       replyToUrl: replyToUrl || articleUrl,
       wpm,
       composition,
+      account, // 'X' or 'X2'
       scheduledTime,
       status: 'pending',
       createdAt: Date.now(),
@@ -267,7 +300,7 @@ app.get('/api/video/:filename', (req, res) => {
 // Main rendering endpoint
 app.post('/api/render', async (req, res) => {
   try {
-    const { articleUrl, replyToUrl, wpm = 500, composition } = req.body;
+    const { articleUrl, replyToUrl, wpm = 500, composition, account = 'X2' } = req.body;
 
     if (!articleUrl) {
       return res.status(400).json({ error: 'Article URL is required' });
@@ -435,20 +468,24 @@ app.post('/api/render', async (req, res) => {
     // Handle posting if replyToUrl is provided
     let posted = false;
     if (replyToUrl) {
-      console.log('🐦 Posting to X...');
+      console.log(`🐦 Posting to X (${account} account)...`);
 
-      // Check if X API credentials are available
-      const hasXApiCreds =
-        process.env.X_API_KEY &&
-        process.env.X_API_SECRET &&
-        process.env.X_ACCESS_TOKEN &&
-        process.env.X_ACCESS_SECRET;
+      // Check credentials based on selected account
+      const hasXApiCreds = account === 'X2'
+        ? (process.env.X2_API_KEY &&
+           process.env.X2_API_SECRET &&
+           process.env.X2_ACCESS_TOKEN &&
+           process.env.X2_ACCESS_SECRET)
+        : (process.env.X_API_KEY &&
+           process.env.X_API_SECRET &&
+           process.env.X_ACCESS_TOKEN &&
+           process.env.X_ACCESS_SECRET);
 
       if (hasXApiCreds) {
         try {
           // Use the existing reply script
           await new Promise((resolve, reject) => {
-            const replyProcess = spawn('pnpm', ['post', outputLocation, replyToUrl], {
+            const replyProcess = spawn('pnpm', ['post', outputLocation, replyToUrl, account], {
               stdio: 'inherit',
             });
 
@@ -666,18 +703,24 @@ async function processQueue() {
       // Post to X if replyToUrl is provided
       let posted = false;
       if (replyToUrl) {
-        console.log('🐦 Posting to X...');
+        const account = item.account || 'X2'; // Default to X2 for backwards compatibility
+        console.log(`🐦 Posting to X (${account} account)...`);
 
-        const hasXApiCreds =
-          process.env.X_API_KEY &&
-          process.env.X_API_SECRET &&
-          process.env.X_ACCESS_TOKEN &&
-          process.env.X_ACCESS_SECRET;
+        // Check credentials based on selected account
+        const hasXApiCreds = account === 'X2'
+          ? (process.env.X2_API_KEY &&
+             process.env.X2_API_SECRET &&
+             process.env.X2_ACCESS_TOKEN &&
+             process.env.X2_ACCESS_SECRET)
+          : (process.env.X_API_KEY &&
+             process.env.X_API_SECRET &&
+             process.env.X_ACCESS_TOKEN &&
+             process.env.X_ACCESS_SECRET);
 
         if (hasXApiCreds) {
           try {
             await new Promise((resolve, reject) => {
-              const replyProcess = spawn('pnpm', ['post', outputLocation, replyToUrl], {
+              const replyProcess = spawn('pnpm', ['post', outputLocation, replyToUrl, account], {
                 stdio: 'inherit',
               });
 
@@ -700,7 +743,7 @@ async function processQueue() {
         }
       }
 
-      // Add to processed URLs
+      // Add to processed URLs (normalized)
       const processedUrlsPath = path.join(__dirname, "processed-urls.json");
       try {
         let processedUrls = [];
@@ -709,8 +752,9 @@ async function processQueue() {
           processedUrls = data.urls || [];
         }
 
-        if (!processedUrls.includes(articleUrl)) {
-          processedUrls.push(articleUrl);
+        const normalizedUrl = normalizeUrl(articleUrl);
+        if (!processedUrls.some(url => normalizeUrl(url) === normalizedUrl)) {
+          processedUrls.push(normalizedUrl);
           fs.writeFileSync(
             processedUrlsPath,
             JSON.stringify({ urls: processedUrls }, null, 2)

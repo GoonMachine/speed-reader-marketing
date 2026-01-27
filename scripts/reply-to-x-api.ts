@@ -9,12 +9,14 @@ config();
 
 const videoPath = process.argv[2];
 const tweetUrl = process.argv[3];
+const account = process.argv[4] || 'X2'; // Default to X2 if not provided
 
 if (!videoPath || !tweetUrl) {
-  console.error("❌ Usage: pnpm x:reply:api <video-path> <tweet-url>");
+  console.error("❌ Usage: pnpm x:reply:api <video-path> <tweet-url> [account]");
   console.error("");
   console.error("Example:");
-  console.error('  pnpm x:reply:api ./out/demo.mp4 "https://x.com/user/status/123"');
+  console.error('  pnpm x:reply:api ./out/demo.mp4 "https://x.com/user/status/123" X');
+  console.error('  pnpm x:reply:api ./out/demo.mp4 "https://x.com/user/status/123" X2');
   process.exit(1);
 }
 
@@ -27,20 +29,38 @@ function extractTweetId(url: string): string {
   return match[1];
 }
 
-// Get X API credentials from env
-const API_KEY = process.env.X_API_KEY || process.env.TWITTER_API_KEY;
-const API_SECRET = process.env.X_API_SECRET || process.env.TWITTER_API_SECRET;
-const ACCESS_TOKEN = process.env.X_ACCESS_TOKEN || process.env.TWITTER_ACCESS_TOKEN;
-const ACCESS_SECRET = process.env.X_ACCESS_SECRET || process.env.TWITTER_ACCESS_SECRET;
+// Get API credentials based on selected account
+let API_KEY: string | undefined;
+let API_SECRET: string | undefined;
+let ACCESS_TOKEN: string | undefined;
+let ACCESS_SECRET: string | undefined;
+
+if (account === 'X2') {
+  API_KEY = process.env.X2_API_KEY;
+  API_SECRET = process.env.X2_API_SECRET;
+  ACCESS_TOKEN = process.env.X2_ACCESS_TOKEN;
+  ACCESS_SECRET = process.env.X2_ACCESS_SECRET;
+} else if (account === 'X') {
+  API_KEY = process.env.X_API_KEY;
+  API_SECRET = process.env.X_API_SECRET;
+  ACCESS_TOKEN = process.env.X_ACCESS_TOKEN;
+  ACCESS_SECRET = process.env.X_ACCESS_SECRET;
+}
+
+// Fallback to TWITTER_ prefix if X_ not found
+if (!API_KEY) API_KEY = process.env.TWITTER_API_KEY;
+if (!API_SECRET) API_SECRET = process.env.TWITTER_API_SECRET;
+if (!ACCESS_TOKEN) ACCESS_TOKEN = process.env.TWITTER_ACCESS_TOKEN;
+if (!ACCESS_SECRET) ACCESS_SECRET = process.env.TWITTER_ACCESS_SECRET;
 
 if (!API_KEY || !API_SECRET || !ACCESS_TOKEN || !ACCESS_SECRET) {
-  console.error("❌ Missing X API credentials!");
+  console.error(`❌ Missing ${account} API credentials!`);
   console.error("");
   console.error("Please set these environment variables:");
-  console.error("  X_API_KEY");
-  console.error("  X_API_SECRET");
-  console.error("  X_ACCESS_TOKEN");
-  console.error("  X_ACCESS_SECRET");
+  console.error(`  ${account}_API_KEY`);
+  console.error(`  ${account}_API_SECRET`);
+  console.error(`  ${account}_ACCESS_TOKEN`);
+  console.error(`  ${account}_ACCESS_SECRET`);
   console.error("");
   console.error("You can get these from: https://developer.twitter.com/");
   process.exit(1);
@@ -386,7 +406,7 @@ async function replyWithVideo(tweetId: string, mediaId: string, replyText: strin
 
 async function main() {
   try {
-    console.log("🐦 X API Video Reply");
+    console.log(`🐦 X API Video Reply (${account} account)`);
     console.log("===================");
     console.log("");
     console.log(`📹 Video: ${videoPath}`);

@@ -7,6 +7,7 @@ export default function Home() {
   const [replyToUrl, setReplyToUrl] = useState('');
   const [wpm, setWpm] = useState('500');
   const [composition, setComposition] = useState('random');
+  const [account, setAccount] = useState('X2');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState('');
@@ -28,6 +29,7 @@ export default function Home() {
           replyToUrl,
           wpm: parseInt(wpm),
           composition: composition !== 'random' ? composition : undefined,
+          account,
         }),
       });
 
@@ -235,6 +237,59 @@ export default function Home() {
             </div>
             <p style={{ fontSize: '13px', color: '#666', marginTop: '8px' }}>
               Zoom: Full article with zoom animation • Short: 6.5s teaser with outro
+            </p>
+          </div>
+
+          <div style={{ marginBottom: '32px' }}>
+            <label style={{
+              display: 'block',
+              fontSize: '14px',
+              fontWeight: '600',
+              color: '#fff',
+              marginBottom: '12px'
+            }}>
+              X Account
+            </label>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => setAccount('X')}
+                style={{
+                  flex: '1',
+                  padding: '12px 16px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  background: account === 'X' ? '#1DA1F2' : '#2a2a2a',
+                  color: '#fff',
+                  border: account === 'X' ? '2px solid #1DA1F2' : '2px solid #3a3a3a',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+              >
+                🐦 Primary (X)
+              </button>
+              <button
+                type="button"
+                onClick={() => setAccount('X2')}
+                style={{
+                  flex: '1',
+                  padding: '12px 16px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  background: account === 'X2' ? '#1DA1F2' : '#2a2a2a',
+                  color: '#fff',
+                  border: account === 'X2' ? '2px solid #1DA1F2' : '2px solid #3a3a3a',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+              >
+                🔄 Secondary (X2)
+              </button>
+            </div>
+            <p style={{ fontSize: '13px', color: '#666', marginTop: '8px' }}>
+              Select which X account to post the video to
             </p>
           </div>
 
