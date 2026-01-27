@@ -149,14 +149,18 @@ async function processArticle(page, article, articleCount) {
         articleUrl: article.articleUrl,
         replyToUrl: article.articleUrl,
         wpm: 400,
+        account: 'X2', // Submit to X2 queue
       }),
     });
 
+    const data = await response.json();
+
     if (response.ok) {
-      const data = await response.json();
       const scheduledDate = new Date(data.queueItem.scheduledTime);
       console.log(`   ✅ Added to queue (position ${data.queueItem.queuePosition})`);
       console.log(`   ⏰ Scheduled for: ${scheduledDate.toLocaleTimeString()}`);
+    } else if (response.status === 409 && data.alreadyExists) {
+      console.log(`   ⚠️  Skipped: ${data.message}`);
     } else {
       console.log(`   ❌ Backend error ${response.status} for article ${articleCount}/1`);
     }

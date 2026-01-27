@@ -72,29 +72,37 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-// Queue management
-const QUEUE_FILE = path.join(__dirname, 'queue.json');
+// Queue management - separate queues for each account
+const QUEUE_FILE_X = path.join(__dirname, 'queue-x.json');
+const QUEUE_FILE_X2 = path.join(__dirname, 'queue-x2.json');
 const MIN_SPACING_MS = 90 * 60 * 1000; // 1.5 hours between videos
 
-// Load queue from disk
-function loadQueue() {
+// Get queue file path for account
+function getQueueFile(account) {
+  return account === 'X' ? QUEUE_FILE_X : QUEUE_FILE_X2;
+}
+
+// Load queue from disk for specific account
+function loadQueue(account = 'X2') {
+  const queueFile = getQueueFile(account);
   try {
-    if (fs.existsSync(QUEUE_FILE)) {
-      const data = JSON.parse(fs.readFileSync(QUEUE_FILE, 'utf8'));
+    if (fs.existsSync(queueFile)) {
+      const data = JSON.parse(fs.readFileSync(queueFile, 'utf8'));
       return data.queue || [];
     }
   } catch (error) {
-    console.error('⚠️  Failed to load queue:', error.message);
+    console.error(`⚠️  Failed to load ${account} queue:`, error.message);
   }
   return [];
 }
 
-// Save queue to disk
-function saveQueue(queue) {
+// Save queue to disk for specific account
+function saveQueue(queue, account = 'X2') {
+  const queueFile = getQueueFile(account);
   try {
-    fs.writeFileSync(QUEUE_FILE, JSON.stringify({ queue }, null, 2));
+    fs.writeFileSync(queueFile, JSON.stringify({ queue }, null, 2));
   } catch (error) {
-    console.error('⚠️  Failed to save queue:', error.message);
+    console.error(`⚠️  Failed to save ${account} queue:`, error.message);
   }
 }
 
@@ -139,8 +147,11 @@ function normalizeUrl(url) {
   }
 }
 
-let queue = loadQueue();
-console.log(`📋 Loaded ${queue.length} items from queue`);
+// Load both queues at startup
+let queueX = loadQueue('X');
+let queueX2 = loadQueue('X2');
+console.log(`📋 Loaded ${queueX.length} items from X queue`);
+console.log(`📋 Loaded ${queueX2.length} items from X2 queue`);
 
 // Create tRPC client
 const trpcClient = createTRPCProxyClient({
@@ -183,15 +194,39 @@ app.post('/api/queue', async (req, res) => {
       return res.status(400).json({ error: 'Article URL is required' });
     }
 
-    // Normalize URL for duplicate checking
-    const normalizedUrl = normalizeUrl(articleUrl);
+    // Get the appropriate queue for this account
+    const queue = account === 'X' ? queueX : queueX2;
 
-    // Check if article is already in queue (compare normalized URLs)
-    if (queue.some(item => normalizeUrl(item.articleUrl) === normalizedUrl)) {
-      return res.json({
-        success: true,
-        message: 'Article already in queue',
-        queuePosition: queue.findIndex(item => normalizeUrl(item.articleUrl) === normalizedUrl) + 1,
+    // Normalize URLs for duplicate checking
+    const normalizedArticleUrl = normalizeUrl(articleUrl);
+    const normalizedReplyUrl = normalizeUrl(replyToUrl || articleUrl);
+
+    // Check BOTH queues to prevent duplicate processing across accounts
+    const allQueueItems = [...queueX, ...queueX2];
+
+    // Check if same article URL already in any queue
+    const existingByArticle = allQueueItems.find(item =>
+      normalizeUrl(item.articleUrl) === normalizedArticleUrl
+    );
+    if (existingByArticle) {
+      return res.status(409).json({
+        success: false,
+        alreadyExists: true,
+        message: `Article already in ${existingByArticle.account} queue`,
+        queuePosition: allQueueItems.indexOf(existingByArticle) + 1,
+      });
+    }
+
+    // CRITICAL: Check if we've already replied to this tweet (replyToUrl check)
+    const existingByReply = allQueueItems.find(item =>
+      normalizeUrl(item.replyToUrl) === normalizedReplyUrl
+    );
+    if (existingByReply) {
+      return res.status(409).json({
+        success: false,
+        alreadyExists: true,
+        message: `Already replied or queued to reply to this tweet`,
+        queuePosition: allQueueItems.indexOf(existingByReply) + 1,
       });
     }
 
@@ -201,10 +236,12 @@ app.post('/api/queue', async (req, res) => {
       if (fs.existsSync(processedUrlsPath)) {
         const data = JSON.parse(fs.readFileSync(processedUrlsPath, "utf8"));
         const processedUrls = data.urls || [];
-        if (processedUrls.some(url => normalizeUrl(url) === normalizedUrl)) {
-          return res.json({
-            success: true,
-            message: 'Article already processed',
+        // Check both article and reply URLs
+        if (processedUrls.some(url => normalizeUrl(url) === normalizedArticleUrl || normalizeUrl(url) === normalizedReplyUrl)) {
+          return res.status(409).json({
+            success: false,
+            alreadyExists: true,
+            message: 'Article or tweet already processed',
           });
         }
       }
@@ -212,7 +249,7 @@ app.post('/api/queue', async (req, res) => {
       // Ignore error, proceed with queueing
     }
 
-    // Calculate scheduled time
+    // Calculate scheduled time for this account's queue
     const scheduledTime = getNextAvailableSlot(queue);
     const scheduledDate = new Date(scheduledTime);
 
@@ -230,15 +267,23 @@ app.post('/api/queue', async (req, res) => {
     };
 
     queue.push(queueItem);
-    saveQueue(queue);
 
-    console.log(`📥 Added to queue: ${articleUrl}`);
+    // Update the correct global queue variable
+    if (account === 'X') {
+      queueX = queue;
+    } else {
+      queueX2 = queue;
+    }
+
+    saveQueue(queue, account);
+
+    console.log(`📥 Added to ${account} queue: ${articleUrl}`);
     console.log(`   Scheduled for: ${scheduledDate.toLocaleTimeString()}`);
     console.log(`   Queue position: ${queue.filter(i => i.status === 'pending').length}`);
 
     res.json({
       success: true,
-      message: 'Added to queue',
+      message: `Added to ${account} queue`,
       queueItem: {
         id: queueItem.id,
         scheduledTime: queueItem.scheduledTime,
@@ -252,22 +297,38 @@ app.post('/api/queue', async (req, res) => {
   }
 });
 
-// Get queue status
+// Get queue status (combined from both accounts)
 app.get('/api/queue', (req, res) => {
-  const pending = queue.filter(i => i.status === 'pending');
-  const processing = queue.filter(i => i.status === 'processing');
-  const completed = queue.filter(i => i.status === 'completed');
-  const failed = queue.filter(i => i.status === 'failed');
+  const allItems = [...queueX, ...queueX2];
+  const pending = allItems.filter(i => i.status === 'pending');
+  const processing = allItems.filter(i => i.status === 'processing');
+  const completed = allItems.filter(i => i.status === 'completed');
+  const failed = allItems.filter(i => i.status === 'failed');
 
   res.json({
-    total: queue.length,
+    total: allItems.length,
     pending: pending.length,
     processing: processing.length,
     completed: completed.length,
     failed: failed.length,
-    items: queue.map(item => ({
+    byAccount: {
+      X: {
+        total: queueX.length,
+        pending: queueX.filter(i => i.status === 'pending').length,
+        processing: queueX.filter(i => i.status === 'processing').length,
+        completed: queueX.filter(i => i.status === 'completed').length,
+      },
+      X2: {
+        total: queueX2.length,
+        pending: queueX2.filter(i => i.status === 'pending').length,
+        processing: queueX2.filter(i => i.status === 'processing').length,
+        completed: queueX2.filter(i => i.status === 'completed').length,
+      },
+    },
+    items: allItems.map(item => ({
       id: item.id,
       articleUrl: item.articleUrl,
+      account: item.account || 'X2',
       status: item.status,
       scheduledTime: item.scheduledTime,
       scheduledDate: new Date(item.scheduledTime).toISOString(),
@@ -554,18 +615,32 @@ app.post('/api/render', async (req, res) => {
   }
 });
 
-// Queue processor - checks every 10 seconds for items ready to process
+// Queue processor - checks every 10 seconds for items ready to process from both queues
 async function processQueue() {
   const now = Date.now();
-  const readyItems = queue.filter(
+
+  // Process X queue
+  const readyItemsX = queueX.filter(
     item => item.status === 'pending' && item.scheduledTime <= now
   );
 
-  for (const item of readyItems) {
-    try {
-      // Mark as processing
-      item.status = 'processing';
-      saveQueue(queue);
+  // Process X2 queue
+  const readyItemsX2 = queueX2.filter(
+    item => item.status === 'pending' && item.scheduledTime <= now
+  );
+
+  // Process each queue separately to avoid copying issues
+  const queuesToProcess = [
+    { queue: queueX, queueType: 'X', readyItems: readyItemsX },
+    { queue: queueX2, queueType: 'X2', readyItems: readyItemsX2 }
+  ];
+
+  for (const { queue, queueType, readyItems } of queuesToProcess) {
+    for (const item of readyItems) {
+      try {
+        // Mark as processing - modify the item IN THE QUEUE directly
+        item.status = 'processing';
+        saveQueue(queue, queueType);
 
       console.log(`\n⏰ Processing queued item: ${item.articleUrl}`);
       console.log(`   ID: ${item.id}`);
@@ -743,7 +818,7 @@ async function processQueue() {
         }
       }
 
-      // Add to processed URLs (normalized)
+      // Add to processed URLs (normalized) - save BOTH article and reply URLs
       const processedUrlsPath = path.join(__dirname, "processed-urls.json");
       try {
         let processedUrls = [];
@@ -752,9 +827,24 @@ async function processQueue() {
           processedUrls = data.urls || [];
         }
 
-        const normalizedUrl = normalizeUrl(articleUrl);
-        if (!processedUrls.some(url => normalizeUrl(url) === normalizedUrl)) {
-          processedUrls.push(normalizedUrl);
+        const normalizedArticleUrl = normalizeUrl(articleUrl);
+        const normalizedReplyUrl = normalizeUrl(replyToUrl);
+        let added = false;
+
+        // Add article URL if not present
+        if (!processedUrls.some(url => normalizeUrl(url) === normalizedArticleUrl)) {
+          processedUrls.push(normalizedArticleUrl);
+          added = true;
+        }
+
+        // Add reply URL if different and not present (prevents replying to same tweet twice)
+        if (normalizedReplyUrl !== normalizedArticleUrl &&
+            !processedUrls.some(url => normalizeUrl(url) === normalizedReplyUrl)) {
+          processedUrls.push(normalizedReplyUrl);
+          added = true;
+        }
+
+        if (added) {
           fs.writeFileSync(
             processedUrlsPath,
             JSON.stringify({ urls: processedUrls }, null, 2)
@@ -764,21 +854,22 @@ async function processQueue() {
         console.error('⚠️  Failed to update processed URLs:', error.message);
       }
 
-      // Mark as completed
+      // Mark as completed - item is already in the queue, no need to update references
       item.status = 'completed';
       item.completedAt = Date.now();
       item.outputLocation = outputLocation;
       item.posted = posted;
-      saveQueue(queue);
+      saveQueue(queue, queueType);
 
       console.log(`✅ Queue item completed: ${item.id}`);
 
-    } catch (error) {
-      console.error(`❌ Queue processing error for ${item.id}:`, error);
-      item.status = 'failed';
-      item.error = error.message;
-      item.failedAt = Date.now();
-      saveQueue(queue);
+      } catch (error) {
+        console.error(`❌ Queue processing error for ${item.id}:`, error);
+        item.status = 'failed';
+        item.error = error.message;
+        item.failedAt = Date.now();
+        saveQueue(queue, queueType);
+      }
     }
   }
 }

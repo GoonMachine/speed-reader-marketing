@@ -36,10 +36,15 @@ export default function Home() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to add to queue');
+        // Check if it's a duplicate (409 status)
+        if (response.status === 409 && data.alreadyExists) {
+          setResult(data); // Show as a warning result, not an error
+        } else {
+          throw new Error(data.error || 'Failed to add to queue');
+        }
+      } else {
+        setResult(data);
       }
-
-      setResult(data);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -331,13 +336,13 @@ export default function Home() {
           <div style={{
             marginTop: '20px',
             padding: '24px',
-            background: '#1a2a1a',
-            border: '1px solid #2a4a2a',
+            background: result.alreadyExists ? '#2a2a1a' : '#1a2a1a',
+            border: result.alreadyExists ? '1px solid #4a4a2a' : '1px solid #2a4a2a',
             borderRadius: '12px',
-            color: '#6bff6b'
+            color: result.alreadyExists ? '#ffcc6b' : '#6bff6b'
           }}>
             <h3 style={{ margin: '0 0 16px 0', fontSize: '18px', fontWeight: '600' }}>
-              ✅ Added to Queue!
+              {result.alreadyExists ? '⚠️ Already Exists' : '✅ Added to Queue!'}
             </h3>
             <p style={{ margin: '8px 0', fontSize: '14px' }}>
               <strong>Status:</strong> {result.message}
@@ -352,9 +357,11 @@ export default function Home() {
                 </p>
               </>
             )}
-            <p style={{ margin: '16px 0 0 0', fontSize: '13px', color: '#88c288' }}>
-              Your video will be generated and posted automatically at the scheduled time.
-            </p>
+            {!result.alreadyExists && (
+              <p style={{ margin: '16px 0 0 0', fontSize: '13px', color: '#88c288' }}>
+                Your video will be generated and posted automatically at the scheduled time.
+              </p>
+            )}
           </div>
         )}
       </div>
