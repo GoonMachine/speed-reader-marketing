@@ -292,6 +292,24 @@ export default function Home() {
               >
                 🔄 Secondary (X2)
               </button>
+              <button
+                type="button"
+                onClick={() => setAccount('X3')}
+                style={{
+                  flex: '1',
+                  padding: '12px 16px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  background: account === 'X3' ? '#1DA1F2' : '#2a2a2a',
+                  color: '#fff',
+                  border: account === 'X3' ? '2px solid #1DA1F2' : '2px solid #3a3a3a',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+              >
+                ⚡ Tertiary (X3)
+              </button>
             </div>
             <p style={{ fontSize: '13px', color: '#666', marginTop: '8px' }}>
               Select which X account to post the video to
