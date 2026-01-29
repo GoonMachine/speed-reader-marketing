@@ -75,11 +75,15 @@ app.use(express.json());
 // Queue management - separate queues for each account
 const QUEUE_FILE_X = path.join(__dirname, 'queue-x.json');
 const QUEUE_FILE_X2 = path.join(__dirname, 'queue-x2.json');
+const QUEUE_FILE_X3 = path.join(__dirname, 'queue-x3.json');
 const MIN_SPACING_MS = 90 * 60 * 1000; // 1.5 hours between videos
 
 // Get queue file path for account
 function getQueueFile(account) {
-  return account === 'X' ? QUEUE_FILE_X : QUEUE_FILE_X2;
+  if (account === 'X') return QUEUE_FILE_X;
+  if (account === 'X2') return QUEUE_FILE_X2;
+  if (account === 'X3') return QUEUE_FILE_X3;
+  return QUEUE_FILE_X2; // Default to X2 for backwards compatibility
 }
 
 // Load queue from disk for specific account
@@ -147,11 +151,13 @@ function normalizeUrl(url) {
   }
 }
 
-// Load both queues at startup
+// Load all three queues at startup
 let queueX = loadQueue('X');
 let queueX2 = loadQueue('X2');
+let queueX3 = loadQueue('X3');
 console.log(`📋 Loaded ${queueX.length} items from X queue`);
 console.log(`📋 Loaded ${queueX2.length} items from X2 queue`);
+console.log(`📋 Loaded ${queueX3.length} items from X3 queue`);
 
 // Create tRPC client
 const trpcClient = createTRPCProxyClient({
@@ -195,14 +201,18 @@ app.post('/api/queue', async (req, res) => {
     }
 
     // Get the appropriate queue for this account
-    const queue = account === 'X' ? queueX : queueX2;
+    let queue;
+    if (account === 'X') queue = queueX;
+    else if (account === 'X2') queue = queueX2;
+    else if (account === 'X3') queue = queueX3;
+    else queue = queueX2; // Default to X2
 
     // Normalize URLs for duplicate checking
     const normalizedArticleUrl = normalizeUrl(articleUrl);
     const normalizedReplyUrl = normalizeUrl(replyToUrl || articleUrl);
 
-    // Check BOTH queues to prevent duplicate processing across accounts
-    const allQueueItems = [...queueX, ...queueX2];
+    // Check ALL queues to prevent duplicate processing across accounts
+    const allQueueItems = [...queueX, ...queueX2, ...queueX3];
 
     // Check if same article URL already in any queue
     const existingByArticle = allQueueItems.find(item =>

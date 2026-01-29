@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate, spring, staticFile } from "remotion";
 import { tokenizeText, getWordDisplay, getWebTranslateX, type WordDisplay } from "../lib/rsvp-web";
+import { calculateWordTimings, getPunctuationMultiplier } from "../../lib/shared-rsvp";
 
 export interface RSVPiPhoneWithOutroProps {
   articleText: string;
@@ -85,13 +86,32 @@ export const RSVPiPhoneWithOutro: React.FC<RSVPiPhoneWithOutroProps> = ({
   // Tokenize text into words
   const words = useMemo(() => tokenizeText(articleText), [articleText]);
 
-  // Calculate which word to show based on WPM and current frame
-  const elapsedMs = (frame / fps) * 1000;
-  const msPerWord = 60000 / wpm;
-  const currentWordIndex = Math.floor(elapsedMs / msPerWord);
+  // Calculate cumulative word timings with punctuation adjustments
+  const wordTimings = useMemo(() => calculateWordTimings(words, wpm), [words, wpm]);
 
-  // Show completion screen if done
-  const isComplete = currentWordIndex >= words.length;
+  // Calculate which word to show based on elapsed time and punctuation-adjusted timings
+  const elapsedMs = (frame / fps) * 1000;
+
+  // Calculate when the last word's display time ends
+  const lastWordMultiplier = words.length > 0 ? getPunctuationMultiplier(words[words.length - 1]) : 1;
+  const lastWordEndTime = words.length > 0 ? wordTimings[wordTimings.length - 1] + (60000 / wpm) * lastWordMultiplier : 0;
+
+  // Check if reading is complete (past the last word's display time)
+  const isComplete = elapsedMs >= lastWordEndTime;
+
+  // Find the current word index by comparing elapsed time to word timings
+  let currentWordIndex = 0;
+  if (!isComplete) {
+    for (let i = wordTimings.length - 1; i >= 0; i--) {
+      if (elapsedMs >= wordTimings[i]) {
+        currentWordIndex = i;
+        break;
+      }
+    }
+  } else {
+    // If complete, set to last word
+    currentWordIndex = words.length - 1;
+  }
 
   // Get current word display (show last word during outro)
   const currentWord = isComplete ? words[words.length - 1] || "" : (words[currentWordIndex] || "");
@@ -104,8 +124,8 @@ export const RSVPiPhoneWithOutro: React.FC<RSVPiPhoneWithOutroProps> = ({
   const displayWordCount = totalWordCount || words.length;
   const progress = displayWordCount > 0 ? (isComplete ? words.length / displayWordCount : currentWordIndex / displayWordCount) : 0;
 
-  // Calculate when reading completes
-  const completionFrame = words.length > 0 ? Math.ceil((words.length * msPerWord) / 1000 * fps) : 0;
+  // Calculate frames after completion (for outro animations)
+  const completionFrame = Math.ceil((lastWordEndTime / 1000) * fps);
   const framesAfterCompletion = isComplete ? frame - completionFrame : 0;
 
   // Phone slides out to the left (extra fast)

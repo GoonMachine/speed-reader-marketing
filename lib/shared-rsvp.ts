@@ -41,6 +41,49 @@ export function calculateWordDelay(wpm: number): number {
 }
 
 /**
+ * Get the timing multiplier for a word based on its punctuation.
+ * - Words ending in . ? ! get 2x time
+ * - Words ending in , ; : get 1.5x time
+ * - All other words get 1x time
+ */
+export function getPunctuationMultiplier(word: string): number {
+  if (!word) return 1;
+  const lastChar = word[word.length - 1];
+
+  // Strong pause punctuation: period, question mark, exclamation
+  if (lastChar === '.' || lastChar === '?' || lastChar === '!') {
+    return 2;
+  }
+
+  // Medium pause punctuation: comma, semicolon, colon
+  if (lastChar === ',' || lastChar === ';' || lastChar === ':') {
+    return 1.5;
+  }
+
+  // No special punctuation
+  return 1;
+}
+
+/**
+ * Calculate cumulative timings for each word in an array.
+ * Returns an array of millisecond timestamps for when each word should appear.
+ * Accounts for punctuation-based pauses.
+ */
+export function calculateWordTimings(words: string[], wpm: number): number[] {
+  const baseDelay = calculateWordDelay(wpm);
+  const timings: number[] = [];
+  let cumulativeTime = 0;
+
+  for (let i = 0; i < words.length; i++) {
+    timings.push(cumulativeTime);
+    const multiplier = getPunctuationMultiplier(words[i]);
+    cumulativeTime += baseDelay * multiplier;
+  }
+
+  return timings;
+}
+
+/**
  * Tokenize text into words suitable for RSVP display.
  * Handles punctuation, numbers, and special characters.
  * Filters out standalone punctuation and paragraph markers.

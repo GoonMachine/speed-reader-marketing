@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate, spring, staticFile } from "remotion";
 import { tokenizeText, getWordDisplay, getWebTranslateX, type WordDisplay } from "../lib/rsvp-web";
+import { calculateWordTimings } from "../../lib/shared-rsvp";
 
 export interface RSVPiPhoneZoomProps {
   articleText: string;
@@ -43,6 +44,27 @@ export const RSVPiPhoneZoom: React.FC<RSVPiPhoneZoomProps> = ({
     },
   });
 
+  // Title emphasis right when zoom finishes (don't compete for attention)
+  const titleEmphasisScale = interpolate(
+    frame,
+    [20, 22], // Quick 2-frame punch
+    [1, 1.05], // More noticeable emphasis
+    {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+      easing: (t) => t * (2 - t), // smooth ease-out
+    }
+  );
+  const titleGlow = interpolate(
+    frame,
+    [20, 22],
+    [0, 0.3], // More visible glow
+    {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp"
+    }
+  );
+
   // Calculate zoom and position
   const scale = interpolate(
     zoomProgress,
@@ -61,10 +83,20 @@ export const RSVPiPhoneZoom: React.FC<RSVPiPhoneZoomProps> = ({
   // Tokenize text into words
   const words = useMemo(() => tokenizeText(articleText), [articleText]);
 
-  // Calculate which word to show based on WPM and current frame
+  // Calculate cumulative word timings with punctuation adjustments
+  const wordTimings = useMemo(() => calculateWordTimings(words, wpm), [words, wpm]);
+
+  // Calculate which word to show based on elapsed time and punctuation-adjusted timings
   const elapsedMs = (frame / fps) * 1000;
-  const msPerWord = 60000 / wpm;
-  const currentWordIndex = Math.floor(elapsedMs / msPerWord);
+
+  // Find the current word index by comparing elapsed time to word timings
+  let currentWordIndex = 0;
+  for (let i = wordTimings.length - 1; i >= 0; i--) {
+    if (elapsedMs >= wordTimings[i]) {
+      currentWordIndex = i;
+      break;
+    }
+  }
 
   // Get current word display
   const currentWord = words[currentWordIndex] || "";
@@ -107,19 +139,20 @@ export const RSVPiPhoneZoom: React.FC<RSVPiPhoneZoomProps> = ({
       <div
         style={{
           position: "absolute",
-          left: screenX + 60,
-          top: screenY + 65,
-          width: screenWidth - 120,
+          left: screenX + 90,
+          top: screenY + 135,
+          width: screenWidth - 180,
           textAlign: "center",
+          transform: `scale(${titleEmphasisScale})`,
         }}
       >
         <h1
           style={{
-            fontSize: 16,
-            fontWeight: 600,
+            fontSize: 22,
+            fontWeight: 700,
             color: "#FAFAFA",
             margin: 0,
-            lineHeight: "1.4",
+            lineHeight: "1.3",
             fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', system-ui, sans-serif",
             wordWrap: "break-word",
             whiteSpace: "normal",
@@ -127,6 +160,7 @@ export const RSVPiPhoneZoom: React.FC<RSVPiPhoneZoomProps> = ({
             display: "-webkit-box",
             WebkitLineClamp: 2,
             WebkitBoxOrient: "vertical",
+            textShadow: `0 0 ${20 * titleGlow}px rgba(255, 255, 255, ${titleGlow})`,
           }}
         >
           {title}

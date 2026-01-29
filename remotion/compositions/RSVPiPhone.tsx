@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate, staticFile } from "remotion";
+import { AbsoluteFill, useCurrentFrame, useVideoConfig, staticFile } from "remotion";
 import { tokenizeText, getWordDisplay, getWebTranslateX, type WordDisplay } from "../lib/rsvp-web";
 
 export interface RSVPiPhoneProps {

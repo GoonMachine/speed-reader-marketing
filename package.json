@@ -17,7 +17,7 @@
     "x:setup-local": "node setup-local-x-profile.js",
     "x:find": "node find-articles.js",
     "x:find:headless": "HEADLESS=true node find-articles.js",
-    "x:find:continuous": "HEADLESS=true node find-articles.js"
+    "x:find:continuous": "node find-articles.js"
   },
   "dependencies": {
     "@browserbasehq/sdk": "^2.6.0",
