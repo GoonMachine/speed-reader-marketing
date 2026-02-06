@@ -26,6 +26,7 @@
     "@remotion/cli": "^4.0.409",
     "@remotion/renderer": "^4.0.409",
     "@trpc/client": "11.7.2",
+    "@vercel/analytics": "^1.6.1",
     "axios": "^1.13.2",
     "cors": "^2.8.6",
     "dotenv": "^16.6.1",
