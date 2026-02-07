@@ -76,7 +76,7 @@ app.use(express.json());
 const QUEUE_FILE_X = path.join(__dirname, 'queue-x.json');
 const QUEUE_FILE_X2 = path.join(__dirname, 'queue-x2.json');
 const QUEUE_FILE_X3 = path.join(__dirname, 'queue-x3.json');
-const MIN_SPACING_MS = 90 * 60 * 1000; // 1.5 hours between videos
+const MIN_SPACING_MS = 20 * 60 * 1000; // 20 minutes between videos per account
 
 // Get queue file path for account
 function getQueueFile(account) {
@@ -194,7 +194,7 @@ app.get('/health', (req, res) => {
 // Queue endpoint - Add article to queue
 app.post('/api/queue', async (req, res) => {
   try {
-    const { articleUrl, replyToUrl, wpm = 400, composition, account = 'X2' } = req.body;
+    const { articleUrl, replyToUrl, wpm = 400, composition, account = 'X2', skipPosting = false } = req.body;
 
     if (!articleUrl) {
       return res.status(400).json({ error: 'Article URL is required' });
@@ -270,7 +270,8 @@ app.post('/api/queue', async (req, res) => {
       replyToUrl: replyToUrl || articleUrl,
       wpm,
       composition,
-      account, // 'X' or 'X2'
+      account, // 'X' or 'X2' or 'X3'
+      skipPosting, // If true, only render video without posting
       scheduledTime,
       status: 'pending',
       createdAt: Date.now(),
@@ -371,7 +372,7 @@ app.get('/api/video/:filename', (req, res) => {
 // Main rendering endpoint
 app.post('/api/render', async (req, res) => {
   try {
-    const { articleUrl, replyToUrl, wpm = 500, composition, account = 'X2' } = req.body;
+    const { articleUrl, replyToUrl, wpm = 500, composition, account = 'X2', skipPosting = false } = req.body;
 
     if (!articleUrl) {
       return res.status(400).json({ error: 'Article URL is required' });
@@ -409,6 +410,21 @@ app.post('/api/render', async (req, res) => {
         useFullArticle: false,
         targetReadingSeconds: 3.5,  // Target ~3.5 seconds of reading (reduced to make room for outro)
         outroDurationSeconds: 3.5,  // 3.5 seconds for outro animation
+      },
+      {
+        id: 'RSVPMinimal',
+        name: 'Minimal (viral format)',
+        useFullArticle: true,
+      },
+      {
+        id: 'RSVPTerminal',
+        name: 'Terminal/Hacker format',
+        useFullArticle: true,
+      },
+      {
+        id: 'RSVPMinimalVertical',
+        name: 'Minimal Vertical (TikTok)',
+        useFullArticle: true,
       }
     ];
 
@@ -536,21 +552,29 @@ app.post('/api/render', async (req, res) => {
 
     console.log(`✅ Video rendered: ${outputLocation}`);
 
-    // Handle posting if replyToUrl is provided
+    // Handle posting if replyToUrl is provided and skipPosting is false
     let posted = false;
-    if (replyToUrl) {
+    if (replyToUrl && !skipPosting) {
       console.log(`🐦 Posting to X (${account} account)...`);
 
       // Check credentials based on selected account
-      const hasXApiCreds = account === 'X2'
-        ? (process.env.X2_API_KEY &&
-           process.env.X2_API_SECRET &&
-           process.env.X2_ACCESS_TOKEN &&
-           process.env.X2_ACCESS_SECRET)
-        : (process.env.X_API_KEY &&
-           process.env.X_API_SECRET &&
-           process.env.X_ACCESS_TOKEN &&
-           process.env.X_ACCESS_SECRET);
+      let hasXApiCreds = false;
+      if (account === 'X2') {
+        hasXApiCreds = !!(process.env.X2_API_KEY &&
+                          process.env.X2_API_SECRET &&
+                          process.env.X2_ACCESS_TOKEN &&
+                          process.env.X2_ACCESS_SECRET);
+      } else if (account === 'X3') {
+        hasXApiCreds = !!(process.env.X3_API_KEY &&
+                          process.env.X3_API_SECRET &&
+                          process.env.X3_ACCESS_TOKEN &&
+                          process.env.X3_ACCESS_SECRET);
+      } else {
+        hasXApiCreds = !!(process.env.X_API_KEY &&
+                          process.env.X_API_SECRET &&
+                          process.env.X_ACCESS_TOKEN &&
+                          process.env.X_ACCESS_SECRET);
+      }
 
       if (hasXApiCreds) {
         try {
@@ -578,6 +602,8 @@ app.post('/api/render', async (req, res) => {
       } else {
         console.log('⚠️  X API credentials not found, skipping post');
       }
+    } else if (skipPosting) {
+      console.log('⏭️  Skipping post (skipPosting: true)');
     }
 
     // Add article URL to processed URLs to prevent automation from finding it again
@@ -677,6 +703,11 @@ async function processQueue() {
           useFullArticle: false,
           targetReadingSeconds: 3.5,
           outroDurationSeconds: 3.5,
+        },
+        {
+          id: 'RSVPMinimal',
+          name: 'Minimal (viral format)',
+          useFullArticle: true,
         }
       ];
 
@@ -785,22 +816,30 @@ async function processQueue() {
 
       console.log(`✅ Video rendered: ${outputLocation}`);
 
-      // Post to X if replyToUrl is provided
+      // Post to X if replyToUrl is provided and skipPosting is false
       let posted = false;
-      if (replyToUrl) {
+      if (replyToUrl && !item.skipPosting) {
         const account = item.account || 'X2'; // Default to X2 for backwards compatibility
         console.log(`🐦 Posting to X (${account} account)...`);
 
         // Check credentials based on selected account
-        const hasXApiCreds = account === 'X2'
-          ? (process.env.X2_API_KEY &&
-             process.env.X2_API_SECRET &&
-             process.env.X2_ACCESS_TOKEN &&
-             process.env.X2_ACCESS_SECRET)
-          : (process.env.X_API_KEY &&
-             process.env.X_API_SECRET &&
-             process.env.X_ACCESS_TOKEN &&
-             process.env.X_ACCESS_SECRET);
+        let hasXApiCreds = false;
+        if (account === 'X2') {
+          hasXApiCreds = !!(process.env.X2_API_KEY &&
+                            process.env.X2_API_SECRET &&
+                            process.env.X2_ACCESS_TOKEN &&
+                            process.env.X2_ACCESS_SECRET);
+        } else if (account === 'X3') {
+          hasXApiCreds = !!(process.env.X3_API_KEY &&
+                            process.env.X3_API_SECRET &&
+                            process.env.X3_ACCESS_TOKEN &&
+                            process.env.X3_ACCESS_SECRET);
+        } else {
+          hasXApiCreds = !!(process.env.X_API_KEY &&
+                            process.env.X_API_SECRET &&
+                            process.env.X_ACCESS_TOKEN &&
+                            process.env.X_ACCESS_SECRET);
+        }
 
         if (hasXApiCreds) {
           try {
@@ -826,6 +865,8 @@ async function processQueue() {
         } else {
           console.log('⚠️  X API credentials not found, skipping post');
         }
+      } else if (item.skipPosting) {
+        console.log('⏭️  Skipping post (skipPosting: true)');
       }
 
       // Add to processed URLs (normalized) - save BOTH article and reply URLs

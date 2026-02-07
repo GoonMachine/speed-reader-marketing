@@ -13,6 +13,9 @@ x-storage-state.json
 articles-found.json
 processed-urls.json
 queue.json
+queue-x.json
+queue-x2.json
+queue-x3.json
 
 # Local Chrome profile for X.com (contains login session data)
 chrome-profile-x/
