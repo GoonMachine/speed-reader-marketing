@@ -149,7 +149,7 @@ async function processArticle(page, article, articleCount) {
         articleUrl: article.articleUrl,
         replyToUrl: article.articleUrl,
         wpm: 400,
-        account: 'X2', // Submit to X2 queue
+        account: 'auto', // Auto-route to account with earliest open slot
       }),
     });
 
@@ -221,10 +221,11 @@ async function findArticles(context = null, page = null) {
   const startTime = new Date();
   console.log("🔍 Starting X article search...");
   console.log(`   Time: ${startTime.toLocaleTimeString()}`);
+  const TARGET_ARTICLES = 3;
   console.log("   Looking for:");
   console.log("     • Native X articles - last 2 hours");
   console.log("     • ZeroHedge articles - last 1 hour");
-  console.log("     • Target: 1 article per cycle\n");
+  console.log(`     • Target: ${TARGET_ARTICLES} articles per cycle\n`);
 
   // Validate environment variables
   if (!process.env.OPENAI_API_KEY && !process.env.ANTHROPIC_API_KEY) {
@@ -348,12 +349,12 @@ async function findArticles(context = null, page = null) {
     const maxScrollsPerSession = 100; // Scrolls per session
 
     console.log("📜 Searching for articles...\n");
-    console.log(`   Target: 1 article`);
+    console.log(`   Target: ${TARGET_ARTICLES} articles`);
     console.log(`   Max sessions: ${maxSessions}`);
     console.log(`   Max scrolls per session: ${maxScrollsPerSession}\n`);
 
     // Retry logic: Multiple scroll sessions within the same cycle
-    while (articles.length < 1 && sessionCount < maxSessions) {
+    while (articles.length < TARGET_ARTICLES && sessionCount < maxSessions) {
       sessionCount++;
       console.log("─".repeat(60));
       console.log(`📍 SESSION ${sessionCount}/${maxSessions}`);
@@ -361,9 +362,9 @@ async function findArticles(context = null, page = null) {
 
       let scrollCount = 0;
 
-      while (articles.length < 1 && scrollCount < maxScrollsPerSession) {
+      while (articles.length < TARGET_ARTICLES && scrollCount < maxScrollsPerSession) {
         scrollCount++;
-        console.log(`   Scroll ${scrollCount}/${maxScrollsPerSession}... (${articles.length}/1 found)`);
+        console.log(`   Scroll ${scrollCount}/${maxScrollsPerSession}... (${articles.length}/${TARGET_ARTICLES} found)`);
 
       // Extract tweet data from current view using Playwright
       try {
@@ -503,7 +504,7 @@ async function findArticles(context = null, page = null) {
                 // Like and queue immediately
                 await processArticle(page, article, articles.length);
 
-                if (articles.length >= 1) break;
+                if (articles.length >= TARGET_ARTICLES) break;
               }
             }
 
@@ -541,12 +542,12 @@ async function findArticles(context = null, page = null) {
                   // Like and queue immediately
                   await processArticle(page, article, articles.length);
 
-                  if (articles.length >= 1) break;
+                  if (articles.length >= TARGET_ARTICLES) break;
                 }
               }
             }
 
-            if (articles.length >= 1) break;
+            if (articles.length >= TARGET_ARTICLES) break;
           }
         }
       } catch (extractError) {
@@ -554,7 +555,7 @@ async function findArticles(context = null, page = null) {
       }
 
       // Break if we found enough articles
-      if (articles.length >= 1) break;
+      if (articles.length >= TARGET_ARTICLES) break;
 
         // Occasionally scroll up first to "unstick" the feed (mimics human behavior)
         if (scrollCount % 5 === 0) {
@@ -571,10 +572,10 @@ async function findArticles(context = null, page = null) {
       }
 
       // End of scroll session
-      console.log(`\n   Session ${sessionCount} complete: ${articles.length}/1 found after ${scrollCount} scrolls`);
+      console.log(`\n   Session ${sessionCount} complete: ${articles.length}/${TARGET_ARTICLES} found after ${scrollCount} scrolls`);
 
-      // If we didn't find 1 article and have more sessions available, reload and retry
-      if (articles.length < 1 && sessionCount < maxSessions) {
+      // If we didn't hit target and have more sessions available, reload and retry
+      if (articles.length < TARGET_ARTICLES && sessionCount < maxSessions) {
         console.log(`   ⏳ Reloading feed for session ${sessionCount + 1}...\n`);
         await page.goto("https://x.com/home", { waitUntil: "domcontentloaded", timeout: 30000 });
         await page.waitForTimeout(3000);
@@ -614,7 +615,7 @@ async function findArticles(context = null, page = null) {
       console.log(`\n💾 Saved to disk (${processedUrls.size} total tracked)`);
     } else {
       console.log("\n⚠️  No articles found in this cycle");
-      console.log("   This is normal - will try again in 1.5 hours");
+      console.log("   This is normal - will try again in 1 hour");
     }
 
     // Don't close browser - keep it open for next cycle
@@ -636,7 +637,7 @@ async function findArticles(context = null, page = null) {
 
 // Run continuously every 1.5 hours if called directly
 if (require.main === module) {
-  const INTERVAL_MS = 90 * 60 * 1000; // 1.5 hours
+  const INTERVAL_MS = 60 * 60 * 1000; // 1 hour
   let cycleCount = 0;
   let browserContext = null;
   let browserPage = null;
