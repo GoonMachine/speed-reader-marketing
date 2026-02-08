@@ -72,10 +72,14 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
+// Persistent data directory - use /data (Railway volume) if available, else local
+const DATA_DIR = fs.existsSync('/data') ? '/data' : __dirname;
+console.log(`📁 Data directory: ${DATA_DIR}`);
+
 // Queue management - separate queues for each account
-const QUEUE_FILE_X = path.join(__dirname, 'queue-x.json');
-const QUEUE_FILE_X2 = path.join(__dirname, 'queue-x2.json');
-const QUEUE_FILE_X3 = path.join(__dirname, 'queue-x3.json');
+const QUEUE_FILE_X = path.join(DATA_DIR, 'queue-x.json');
+const QUEUE_FILE_X2 = path.join(DATA_DIR, 'queue-x2.json');
+const QUEUE_FILE_X3 = path.join(DATA_DIR, 'queue-x3.json');
 const MIN_SPACING_MS = 20 * 60 * 1000; // 20 minutes between videos per account
 
 // Get queue file path for account
@@ -257,7 +261,7 @@ app.post('/api/queue', async (req, res) => {
     }
 
     // Check if article was already processed
-    const processedUrlsPath = path.join(__dirname, "processed-urls.json");
+    const processedUrlsPath = path.join(DATA_DIR, "processed-urls.json");
     try {
       if (fs.existsSync(processedUrlsPath)) {
         const data = JSON.parse(fs.readFileSync(processedUrlsPath, "utf8"));
@@ -325,9 +329,9 @@ app.post('/api/queue', async (req, res) => {
   }
 });
 
-// Get queue status (combined from both accounts)
+// Get queue status (combined from all accounts)
 app.get('/api/queue', (req, res) => {
-  const allItems = [...queueX, ...queueX2];
+  const allItems = [...queueX, ...queueX2, ...queueX3];
   const pending = allItems.filter(i => i.status === 'pending');
   const processing = allItems.filter(i => i.status === 'processing');
   const completed = allItems.filter(i => i.status === 'completed');
@@ -351,6 +355,12 @@ app.get('/api/queue', (req, res) => {
         pending: queueX2.filter(i => i.status === 'pending').length,
         processing: queueX2.filter(i => i.status === 'processing').length,
         completed: queueX2.filter(i => i.status === 'completed').length,
+      },
+      X3: {
+        total: queueX3.length,
+        pending: queueX3.filter(i => i.status === 'pending').length,
+        processing: queueX3.filter(i => i.status === 'processing').length,
+        completed: queueX3.filter(i => i.status === 'completed').length,
       },
     },
     items: allItems.map(item => ({
@@ -625,7 +635,7 @@ app.post('/api/render', async (req, res) => {
     }
 
     // Add article URL to processed URLs to prevent automation from finding it again
-    const processedUrlsPath = path.join(__dirname, "processed-urls.json");
+    const processedUrlsPath = path.join(DATA_DIR, "processed-urls.json");
     try {
       let processedUrls = [];
       if (fs.existsSync(processedUrlsPath)) {
@@ -888,7 +898,7 @@ async function processQueue() {
       }
 
       // Add to processed URLs (normalized) - save BOTH article and reply URLs
-      const processedUrlsPath = path.join(__dirname, "processed-urls.json");
+      const processedUrlsPath = path.join(DATA_DIR, "processed-urls.json");
       try {
         let processedUrls = [];
         if (fs.existsSync(processedUrlsPath)) {
