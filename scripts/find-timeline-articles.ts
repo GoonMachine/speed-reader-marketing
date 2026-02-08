@@ -59,6 +59,10 @@ interface RawTweet {
     media_entities?: string[];
     entities?: any;
   };
+  referenced_tweets?: Array<{
+    type: "retweeted" | "quoted" | "replied_to";
+    id: string;
+  }>;
   entities?: {
     urls?: Array<{ expanded_url: string; display_url: string }>;
     hashtags?: Array<{ tag: string }>;
@@ -256,7 +260,7 @@ async function fetchTimeline(
   const url = `${BASE}/users/${userId}/timelines/reverse_chronological`;
 
   const params: Record<string, string> = {
-    "tweet.fields": "article,created_at,public_metrics,author_id,entities",
+    "tweet.fields": "article,created_at,public_metrics,author_id,entities,referenced_tweets",
     "expansions": "author_id,article.cover_media",
     "user.fields": "username,name,verified,public_metrics",
     "max_results": (opts.maxResults || 100).toString(),
@@ -434,6 +438,14 @@ async function buildArticlePool(cfg: CLIConfig): Promise<ScoredArticle[]> {
       for (const tweet of tweets) {
         if (!tweet.article) continue;
 
+        // Skip quote tweets - they inherit the article field from the quoted tweet,
+        // which causes content/URL mismatches (e.g. omarsar0 quoting jenniferzeng97)
+        const isQuoteTweet = tweet.referenced_tweets?.some(ref => ref.type === "quoted");
+        if (isQuoteTweet) {
+          console.error(`    Skipping quote tweet ${tweet.id} (inherited article from quoted tweet)`);
+          continue;
+        }
+
         const ageH = (now.getTime() - new Date(tweet.created_at).getTime()) / 3600000;
         if (ageH > cfg.maxAgeHours) continue;
 
@@ -516,10 +528,15 @@ async function runExplore(cfg: CLIConfig) {
     try {
       const { tweets, users } = await fetchAccountTimeline(account, cfg.pages);
 
-      const articles = tweets.filter((t) => t.article);
+      const allArticleTweets = tweets.filter((t) => t.article);
+      // Filter out quote tweets - they inherit article from quoted tweet
+      const articles = allArticleTweets.filter(
+        (t) => !t.referenced_tweets?.some((ref) => ref.type === "quoted")
+      );
+      const skippedQuotes = allArticleTweets.length - articles.length;
 
       console.error(`\n  Total tweets: ${tweets.length}`);
-      console.error(`  Articles: ${articles.length}`);
+      console.error(`  Articles: ${articles.length}${skippedQuotes > 0 ? ` (${skippedQuotes} quote tweets skipped)` : ""}`);
 
       if (articles.length === 0) {
         console.error("  No articles found.\n");

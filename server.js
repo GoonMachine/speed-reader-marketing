@@ -679,8 +679,15 @@ app.post('/api/render', async (req, res) => {
   }
 });
 
-// Queue processor - checks every 10 seconds for items ready to process from both queues
+// Guard against concurrent processQueue calls (rendering takes minutes, but interval is 10s)
+let isProcessing = false;
+
+// Queue processor - checks every 10 seconds for items ready to process from all queues
 async function processQueue() {
+  if (isProcessing) return;
+  isProcessing = true;
+
+  try {
   const now = Date.now();
 
   // Process all three queues
@@ -699,9 +706,24 @@ async function processQueue() {
 
       console.log(`\n⏰ Processing queued item: ${item.articleUrl}`);
       console.log(`   ID: ${item.id}`);
+      console.log(`   Reply to: ${item.replyToUrl}`);
+      console.log(`   Account: ${item.account || queueType}`);
 
       // Call the render endpoint logic directly
       const { articleUrl, replyToUrl, wpm, composition } = item;
+
+      // Sanity check: for pre-extracted content, articleUrl and replyToUrl should match
+      if (item.articleContent && articleUrl !== replyToUrl) {
+        console.log(`⚠️  WARNING: articleUrl and replyToUrl mismatch!`);
+        console.log(`   articleUrl: ${articleUrl}`);
+        console.log(`   replyToUrl: ${replyToUrl}`);
+        console.log(`   Skipping to prevent posting wrong content to wrong tweet.`);
+        item.status = 'failed';
+        item.error = 'Data mismatch: articleUrl !== replyToUrl for pre-extracted content';
+        item.failedAt = Date.now();
+        saveQueue(queue, queueType);
+        continue;
+      }
 
       // Use pre-extracted content if available, otherwise extract
       let title, content, wordCount;
@@ -950,6 +972,10 @@ async function processQueue() {
         saveQueue(queue, queueType);
       }
     }
+  }
+
+  } finally {
+    isProcessing = false;
   }
 }
 
