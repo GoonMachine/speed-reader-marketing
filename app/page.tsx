@@ -7,7 +7,7 @@ export default function Home() {
   const [replyToUrl, setReplyToUrl] = useState('');
   const [wpm, setWpm] = useState('500');
   const [composition, setComposition] = useState('random');
-  const [account, setAccount] = useState('X2');
+  const [account, setAccount] = useState('auto');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState('');
@@ -258,6 +258,24 @@ export default function Home() {
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
               <button
                 type="button"
+                onClick={() => setAccount('auto')}
+                style={{
+                  flex: '1',
+                  padding: '12px 16px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  background: account === 'auto' ? '#1DA1F2' : '#2a2a2a',
+                  color: '#fff',
+                  border: account === 'auto' ? '2px solid #1DA1F2' : '2px solid #3a3a3a',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+              >
+                Auto
+              </button>
+              <button
+                type="button"
                 onClick={() => setAccount('X')}
                 style={{
                   flex: '1',
@@ -272,7 +290,7 @@ export default function Home() {
                   transition: 'all 0.2s',
                 }}
               >
-                🐦 Primary (X)
+                X
               </button>
               <button
                 type="button"
@@ -290,7 +308,7 @@ export default function Home() {
                   transition: 'all 0.2s',
                 }}
               >
-                🔄 Secondary (X2)
+                X2
               </button>
               <button
                 type="button"
@@ -308,11 +326,11 @@ export default function Home() {
                   transition: 'all 0.2s',
                 }}
               >
-                ⚡ Tertiary (X3)
+                X3
               </button>
             </div>
             <p style={{ fontSize: '13px', color: '#666', marginTop: '8px' }}>
-              Select which X account to post the video to
+              Auto routes to whichever account has the earliest open slot
             </p>
           </div>
 
@@ -365,6 +383,11 @@ export default function Home() {
             <p style={{ margin: '8px 0', fontSize: '14px' }}>
               <strong>Status:</strong> {result.message}
             </p>
+            {result.account && (
+              <p style={{ margin: '8px 0', fontSize: '14px' }}>
+                <strong>Account:</strong> {result.account}
+              </p>
+            )}
             {result.queueItem && (
               <>
                 <p style={{ margin: '8px 0', fontSize: '14px' }}>

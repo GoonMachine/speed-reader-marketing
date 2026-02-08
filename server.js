@@ -191,18 +191,34 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Rendering server is running' });
 });
 
+// Pick the account whose queue has the earliest next available slot
+function getAutoAccount() {
+  const slots = [
+    { account: 'X', queue: queueX, nextSlot: getNextAvailableSlot(queueX) },
+    { account: 'X2', queue: queueX2, nextSlot: getNextAvailableSlot(queueX2) },
+    { account: 'X3', queue: queueX3, nextSlot: getNextAvailableSlot(queueX3) },
+  ];
+  slots.sort((a, b) => a.nextSlot - b.nextSlot);
+  return slots[0];
+}
+
 // Queue endpoint - Add article to queue
 app.post('/api/queue', async (req, res) => {
   try {
-    const { articleUrl, replyToUrl, wpm = 400, composition, account = 'X2', skipPosting = false } = req.body;
+    let { articleUrl, replyToUrl, wpm = 400, composition, account = 'auto', skipPosting = false } = req.body;
 
     if (!articleUrl) {
       return res.status(400).json({ error: 'Article URL is required' });
     }
 
-    // Get the appropriate queue for this account
+    // Auto-route to the account with the earliest available slot
     let queue;
-    if (account === 'X') queue = queueX;
+    if (account === 'auto') {
+      const pick = getAutoAccount();
+      account = pick.account;
+      queue = pick.queue;
+      console.log(`🔀 Auto-routed to ${account} (next slot: ${new Date(pick.nextSlot).toLocaleTimeString()})`);
+    } else if (account === 'X') queue = queueX;
     else if (account === 'X2') queue = queueX2;
     else if (account === 'X3') queue = queueX3;
     else queue = queueX2; // Default to X2
@@ -280,11 +296,9 @@ app.post('/api/queue', async (req, res) => {
     queue.push(queueItem);
 
     // Update the correct global queue variable
-    if (account === 'X') {
-      queueX = queue;
-    } else {
-      queueX2 = queue;
-    }
+    if (account === 'X') queueX = queue;
+    else if (account === 'X2') queueX2 = queue;
+    else if (account === 'X3') queueX3 = queue;
 
     saveQueue(queue, account);
 
@@ -295,6 +309,7 @@ app.post('/api/queue', async (req, res) => {
     res.json({
       success: true,
       message: `Added to ${account} queue`,
+      account,
       queueItem: {
         id: queueItem.id,
         scheduledTime: queueItem.scheduledTime,

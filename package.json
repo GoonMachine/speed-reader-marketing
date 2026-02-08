@@ -17,7 +17,15 @@
     "x:setup-local": "node setup-local-x-profile.js",
     "x:find": "node find-articles.js",
     "x:find:headless": "HEADLESS=true node find-articles.js",
-    "x:find:continuous": "node find-articles.js"
+    "x:find:continuous": "node find-articles.js",
+    "x:find:viral": "tsx find-viral-articles.ts",
+    "x:find:viral:ai": "tsx find-viral-articles.ts --niche 'AI OR LLM OR Claude OR GPT OR ChatGPT'",
+    "x:find:viral:crypto": "tsx find-viral-articles.ts --niche 'crypto OR bitcoin OR ethereum OR web3'",
+    "x:find:viral:tech": "tsx find-viral-articles.ts --niche 'tech OR startup OR SaaS OR developer'",
+    "x:timeline": "tsx scripts/find-timeline-articles.ts",
+    "x:timeline:explore": "tsx scripts/find-timeline-articles.ts --explore",
+    "x:timeline:dry": "tsx scripts/find-timeline-articles.ts --dry-run",
+    "x:timeline:loop": "tsx scripts/find-timeline-articles.ts --loop"
   },
   "dependencies": {
     "@browserbasehq/sdk": "^2.6.0",
