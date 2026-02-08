@@ -569,9 +569,10 @@ app.post('/api/render', async (req, res) => {
 
     console.log(`✅ Video rendered: ${outputLocation}`);
 
-    // Handle posting if replyToUrl is provided and skipPosting is false
+    // Handle posting if replyToUrl is a valid tweet URL and skipPosting is false
+    const isTweetUrl = replyToUrl && /x\.com\/\w+\/status\/\d+/.test(replyToUrl);
     let posted = false;
-    if (replyToUrl && !skipPosting) {
+    if (isTweetUrl && !skipPosting) {
       console.log(`🐦 Posting to X (${account} account)...`);
 
       // Check credentials based on selected account
@@ -832,9 +833,10 @@ async function processQueue() {
 
       console.log(`✅ Video rendered: ${outputLocation}`);
 
-      // Post to X if replyToUrl is provided and skipPosting is false
+      // Post to X if replyToUrl is a valid tweet URL and skipPosting is false
+      const isTweetUrl = replyToUrl && /x\.com\/\w+\/status\/\d+/.test(replyToUrl);
       let posted = false;
-      if (replyToUrl && !item.skipPosting) {
+      if (isTweetUrl && !item.skipPosting) {
         const account = item.account || 'X2'; // Default to X2 for backwards compatibility
         console.log(`🐦 Posting to X (${account} account)...`);
 
