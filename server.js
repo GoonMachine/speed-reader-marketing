@@ -205,7 +205,7 @@ function getAutoAccount() {
 // Queue endpoint - Add article to queue
 app.post('/api/queue', async (req, res) => {
   try {
-    let { articleUrl, replyToUrl, wpm = 400, composition, account = 'auto', skipPosting = false } = req.body;
+    let { articleUrl, replyToUrl, wpm = 400, composition, account = 'auto', skipPosting = false, articleTitle, articleContent } = req.body;
 
     if (!articleUrl) {
       return res.status(400).json({ error: 'Article URL is required' });
@@ -288,6 +288,8 @@ app.post('/api/queue', async (req, res) => {
       composition,
       account, // 'X' or 'X2' or 'X3'
       skipPosting, // If true, only render video without posting
+      articleTitle: articleTitle || undefined, // Pre-extracted title (skips extraction)
+      articleContent: articleContent || undefined, // Pre-extracted content (skips extraction)
       scheduledTime,
       status: 'pending',
       createdAt: Date.now(),
@@ -670,20 +672,11 @@ app.post('/api/render', async (req, res) => {
 async function processQueue() {
   const now = Date.now();
 
-  // Process X queue
-  const readyItemsX = queueX.filter(
-    item => item.status === 'pending' && item.scheduledTime <= now
-  );
-
-  // Process X2 queue
-  const readyItemsX2 = queueX2.filter(
-    item => item.status === 'pending' && item.scheduledTime <= now
-  );
-
-  // Process each queue separately to avoid copying issues
+  // Process all three queues
   const queuesToProcess = [
-    { queue: queueX, queueType: 'X', readyItems: readyItemsX },
-    { queue: queueX2, queueType: 'X2', readyItems: readyItemsX2 }
+    { queue: queueX, queueType: 'X', readyItems: queueX.filter(item => item.status === 'pending' && item.scheduledTime <= now) },
+    { queue: queueX2, queueType: 'X2', readyItems: queueX2.filter(item => item.status === 'pending' && item.scheduledTime <= now) },
+    { queue: queueX3, queueType: 'X3', readyItems: queueX3.filter(item => item.status === 'pending' && item.scheduledTime <= now) },
   ];
 
   for (const { queue, queueType, readyItems } of queuesToProcess) {
@@ -699,8 +692,16 @@ async function processQueue() {
       // Call the render endpoint logic directly
       const { articleUrl, replyToUrl, wpm, composition } = item;
 
-      // Extract article
-      const { title, content, wordCount } = await extractArticle(articleUrl);
+      // Use pre-extracted content if available, otherwise extract
+      let title, content, wordCount;
+      if (item.articleContent) {
+        title = item.articleTitle || 'Untitled';
+        content = item.articleContent;
+        wordCount = content.split(/\s+/).length;
+        console.log(`📝 Using pre-extracted content: "${title}" (${wordCount} words)`);
+      } else {
+        ({ title, content, wordCount } = await extractArticle(articleUrl));
+      }
 
       const fps = 30;
       const MAX_VIDEO_SECONDS = 115;

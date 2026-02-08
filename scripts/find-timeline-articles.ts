@@ -93,6 +93,7 @@ interface ScoredArticle {
   tweetId: string;
   tweetUrl: string;
   articleTitle: string | null;
+  articleContent: string | null;
   author: {
     username: string;
     name: string;
@@ -300,6 +301,7 @@ function scoreArticle(tweet: RawTweet, user: RawUser): ScoredArticle | null {
   const totalEngagement = metrics.like_count + metrics.retweet_count + metrics.reply_count;
 
   const articleTitle = tweet.article?.title || null;
+  const articleContent = tweet.article?.plain_text || null;
 
   // 1. VELOCITY SCORE (40 points)
   const totalEngagementPerHour = totalEngagement / ageHours;
@@ -354,6 +356,7 @@ function scoreArticle(tweet: RawTweet, user: RawUser): ScoredArticle | null {
     tweetId: tweet.id,
     tweetUrl: `https://x.com/${user.username}/status/${tweet.id}`,
     articleTitle,
+    articleContent,
     author: {
       username: user.username,
       name: user.name,
@@ -463,12 +466,18 @@ async function submitToQueue(article: ScoredArticle): Promise<{ ok: boolean; mes
     return { ok: false, message: "BACKEND_URL not set" };
   }
 
-  const body = {
+  const body: Record<string, any> = {
     articleUrl: article.tweetUrl,
     replyToUrl: article.tweetUrl,
     wpm: 400,
     account: "auto",
   };
+
+  // Pass pre-extracted content so backend skips extraction for native X articles
+  if (article.articleContent) {
+    body.articleTitle = article.articleTitle;
+    body.articleContent = article.articleContent;
+  }
 
   try {
     const res = await fetch(`${backendUrl}/api/queue`, {
