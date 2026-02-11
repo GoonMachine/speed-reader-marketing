@@ -210,7 +210,7 @@ function getPostCountToday(queue) {
 }
 
 // Daily post limits per account (X has no limit)
-const DAILY_LIMITS = { X2: 5, X3: 1, X4: 5 };
+const DAILY_LIMITS = { X2: 3, X3: 3, X4: 3 };
 
 // Pick the account whose queue has the earliest next available slot
 // X2, X3, X4 have daily limits; everything else routes to X
