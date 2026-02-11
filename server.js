@@ -616,6 +616,10 @@ app.post('/api/render', async (req, res) => {
         totalWordCount: wordCount,
       },
       timeoutInMilliseconds: 120000,
+      concurrency: 1,
+      chromiumOptions: {
+        args: ['--no-sandbox', '--disable-dev-shm-usage'],
+      },
     });
 
     console.log(`✅ Video rendered: ${outputLocation}`);
@@ -903,6 +907,10 @@ async function processQueue() {
           totalWordCount: wordCount,
         },
         timeoutInMilliseconds: 120000,
+        concurrency: 1,
+        chromiumOptions: {
+          args: ['--no-sandbox', '--disable-dev-shm-usage'],
+        },
       });
 
       console.log(`✅ Video rendered: ${outputLocation}`);
