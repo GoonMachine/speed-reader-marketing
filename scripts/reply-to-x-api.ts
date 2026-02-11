@@ -17,6 +17,7 @@ if (!videoPath || !tweetUrl) {
   console.error("Example:");
   console.error('  pnpm x:reply:api ./out/demo.mp4 "https://x.com/user/status/123" X');
   console.error('  pnpm x:reply:api ./out/demo.mp4 "https://x.com/user/status/123" X2');
+  console.error('  pnpm x:reply:api ./out/demo.mp4 "https://x.com/user/status/123" X3');
   process.exit(1);
 }
 
@@ -40,6 +41,16 @@ if (account === 'X2') {
   API_SECRET = process.env.X2_API_SECRET;
   ACCESS_TOKEN = process.env.X2_ACCESS_TOKEN;
   ACCESS_SECRET = process.env.X2_ACCESS_SECRET;
+} else if (account === 'X3') {
+  API_KEY = process.env.X3_API_KEY;
+  API_SECRET = process.env.X3_API_SECRET;
+  ACCESS_TOKEN = process.env.X3_ACCESS_TOKEN;
+  ACCESS_SECRET = process.env.X3_ACCESS_SECRET;
+} else if (account === 'X4') {
+  API_KEY = process.env.X4_API_KEY;
+  API_SECRET = process.env.X4_API_SECRET;
+  ACCESS_TOKEN = process.env.X4_ACCESS_TOKEN;
+  ACCESS_SECRET = process.env.X4_ACCESS_SECRET;
 } else if (account === 'X') {
   API_KEY = process.env.X_API_KEY;
   API_SECRET = process.env.X_API_SECRET;
@@ -433,6 +444,12 @@ async function main() {
 
     // Like the tweet
     await likeTweet(myUserId, tweetId);
+    console.log("");
+
+    // Wait 30-70 seconds before following to avoid looking too bursty
+    const followDelay = 30000 + Math.random() * 40000; // 30-70 seconds
+    console.log(`⏳ Waiting ${Math.round(followDelay / 1000)}s before following...`);
+    await new Promise(resolve => setTimeout(resolve, followDelay));
     console.log("");
 
     // Follow the author (if not already following)

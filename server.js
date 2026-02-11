@@ -80,6 +80,7 @@ console.log(`📁 Data directory: ${DATA_DIR}`);
 const QUEUE_FILE_X = path.join(DATA_DIR, 'queue-x.json');
 const QUEUE_FILE_X2 = path.join(DATA_DIR, 'queue-x2.json');
 const QUEUE_FILE_X3 = path.join(DATA_DIR, 'queue-x3.json');
+const QUEUE_FILE_X4 = path.join(DATA_DIR, 'queue-x4.json');
 const MIN_SPACING_MS = 20 * 60 * 1000; // 20 minutes between videos per account
 
 // Get queue file path for account
@@ -87,7 +88,8 @@ function getQueueFile(account) {
   if (account === 'X') return QUEUE_FILE_X;
   if (account === 'X2') return QUEUE_FILE_X2;
   if (account === 'X3') return QUEUE_FILE_X3;
-  return QUEUE_FILE_X2; // Default to X2 for backwards compatibility
+  if (account === 'X4') return QUEUE_FILE_X4;
+  return QUEUE_FILE_X; // Default to X
 }
 
 // Load queue from disk for specific account
@@ -155,13 +157,15 @@ function normalizeUrl(url) {
   }
 }
 
-// Load all three queues at startup
+// Load all queues at startup
 let queueX = loadQueue('X');
 let queueX2 = loadQueue('X2');
 let queueX3 = loadQueue('X3');
+let queueX4 = loadQueue('X4');
 console.log(`📋 Loaded ${queueX.length} items from X queue`);
 console.log(`📋 Loaded ${queueX2.length} items from X2 queue`);
 console.log(`📋 Loaded ${queueX3.length} items from X3 queue`);
+console.log(`📋 Loaded ${queueX4.length} items from X4 queue`);
 
 // Create tRPC client
 const trpcClient = createTRPCProxyClient({
@@ -195,33 +199,41 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Rendering server is running' });
 });
 
-// Check if an account has already been used today (has a pending, processing, or completed item today)
-function hasPostedToday(queue) {
+// Count how many posts an account has today (pending, processing, or completed)
+function getPostCountToday(queue) {
   const now = new Date();
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  return queue.some(item => {
+  return queue.filter(item => {
     const itemTime = item.completedAt || item.scheduledTime || item.createdAt;
     return itemTime >= startOfDay && (item.status === 'pending' || item.status === 'processing' || item.status === 'completed');
-  });
+  }).length;
 }
 
+// Daily post limits per account (X has no limit)
+const DAILY_LIMITS = { X2: 5, X3: 1, X4: 5 };
+
 // Pick the account whose queue has the earliest next available slot
-// X2 and X3 are limited to 1 post per day; everything else routes to X
+// X2, X3, X4 have daily limits; everything else routes to X
 function getAutoAccount() {
   const slots = [
     { account: 'X', queue: queueX, nextSlot: getNextAvailableSlot(queueX) },
   ];
 
-  // Only include X2/X3 if they haven't posted today
-  if (!hasPostedToday(queueX2)) {
-    slots.push({ account: 'X2', queue: queueX2, nextSlot: getNextAvailableSlot(queueX2) });
-  } else {
-    console.log(`⏸️  X2 already has a post today, skipping`);
-  }
-  if (!hasPostedToday(queueX3)) {
-    slots.push({ account: 'X3', queue: queueX3, nextSlot: getNextAvailableSlot(queueX3) });
-  } else {
-    console.log(`⏸️  X3 already has a post today, skipping`);
+  // Only include secondary accounts if they haven't hit their daily limit
+  const secondaryAccounts = [
+    { account: 'X2', queue: queueX2 },
+    { account: 'X3', queue: queueX3 },
+    { account: 'X4', queue: queueX4 },
+  ];
+
+  for (const { account, queue } of secondaryAccounts) {
+    const todayCount = getPostCountToday(queue);
+    const limit = DAILY_LIMITS[account] || 1;
+    if (todayCount < limit) {
+      slots.push({ account, queue, nextSlot: getNextAvailableSlot(queue) });
+    } else {
+      console.log(`⏸️  ${account} hit daily limit (${todayCount}/${limit}), skipping`);
+    }
   }
 
   slots.sort((a, b) => a.nextSlot - b.nextSlot);
@@ -245,24 +257,16 @@ app.post('/api/queue', async (req, res) => {
       queue = pick.queue;
       console.log(`🔀 Auto-routed to ${account} (next slot: ${new Date(pick.nextSlot).toLocaleTimeString()})`);
     } else if (account === 'X') queue = queueX;
-    else if (account === 'X2') {
-      // Enforce 1 post/day limit for X2 - fall back to X if already posted today
-      if (hasPostedToday(queueX2)) {
-        console.log(`⏸️  X2 already has a post today, routing to X instead`);
+    else if (['X2', 'X3', 'X4'].includes(account)) {
+      const queues = { X2: queueX2, X3: queueX3, X4: queueX4 };
+      const limit = DAILY_LIMITS[account] || 1;
+      const todayCount = getPostCountToday(queues[account]);
+      if (todayCount >= limit) {
+        console.log(`⏸️  ${account} hit daily limit (${todayCount}/${limit}), routing to X instead`);
         account = 'X';
         queue = queueX;
       } else {
-        queue = queueX2;
-      }
-    }
-    else if (account === 'X3') {
-      // Enforce 1 post/day limit for X3 - fall back to X if already posted today
-      if (hasPostedToday(queueX3)) {
-        console.log(`⏸️  X3 already has a post today, routing to X instead`);
-        account = 'X';
-        queue = queueX;
-      } else {
-        queue = queueX3;
+        queue = queues[account];
       }
     }
     else queue = queueX; // Default to X
@@ -272,7 +276,7 @@ app.post('/api/queue', async (req, res) => {
     const normalizedReplyUrl = normalizeUrl(replyToUrl || articleUrl);
 
     // Check ALL queues to prevent duplicate processing across accounts
-    const allQueueItems = [...queueX, ...queueX2, ...queueX3];
+    const allQueueItems = [...queueX, ...queueX2, ...queueX3, ...queueX4];
 
     // Check if same article URL already in any queue
     const existingByArticle = allQueueItems.find(item =>
@@ -330,7 +334,7 @@ app.post('/api/queue', async (req, res) => {
       replyToUrl: replyToUrl || articleUrl,
       wpm,
       composition,
-      account, // 'X' or 'X2' or 'X3'
+      account, // 'X', 'X2', 'X3', or 'X4'
       skipPosting, // If true, only render video without posting
       articleTitle: articleTitle || undefined, // Pre-extracted title (skips extraction)
       articleContent: articleContent || undefined, // Pre-extracted content (skips extraction)
@@ -345,6 +349,7 @@ app.post('/api/queue', async (req, res) => {
     if (account === 'X') queueX = queue;
     else if (account === 'X2') queueX2 = queue;
     else if (account === 'X3') queueX3 = queue;
+    else if (account === 'X4') queueX4 = queue;
 
     saveQueue(queue, account);
 
@@ -371,11 +376,18 @@ app.post('/api/queue', async (req, res) => {
 
 // Get queue status (combined from all accounts)
 app.get('/api/queue', (req, res) => {
-  const allItems = [...queueX, ...queueX2, ...queueX3];
+  const allItems = [...queueX, ...queueX2, ...queueX3, ...queueX4];
   const pending = allItems.filter(i => i.status === 'pending');
   const processing = allItems.filter(i => i.status === 'processing');
   const completed = allItems.filter(i => i.status === 'completed');
   const failed = allItems.filter(i => i.status === 'failed');
+
+  const accountStats = (q) => ({
+    total: q.length,
+    pending: q.filter(i => i.status === 'pending').length,
+    processing: q.filter(i => i.status === 'processing').length,
+    completed: q.filter(i => i.status === 'completed').length,
+  });
 
   res.json({
     total: allItems.length,
@@ -384,24 +396,10 @@ app.get('/api/queue', (req, res) => {
     completed: completed.length,
     failed: failed.length,
     byAccount: {
-      X: {
-        total: queueX.length,
-        pending: queueX.filter(i => i.status === 'pending').length,
-        processing: queueX.filter(i => i.status === 'processing').length,
-        completed: queueX.filter(i => i.status === 'completed').length,
-      },
-      X2: {
-        total: queueX2.length,
-        pending: queueX2.filter(i => i.status === 'pending').length,
-        processing: queueX2.filter(i => i.status === 'processing').length,
-        completed: queueX2.filter(i => i.status === 'completed').length,
-      },
-      X3: {
-        total: queueX3.length,
-        pending: queueX3.filter(i => i.status === 'pending').length,
-        processing: queueX3.filter(i => i.status === 'processing').length,
-        completed: queueX3.filter(i => i.status === 'completed').length,
-      },
+      X: accountStats(queueX),
+      X2: accountStats(queueX2),
+      X3: accountStats(queueX3),
+      X4: accountStats(queueX4),
     },
     items: allItems.map(item => ({
       id: item.id,
@@ -435,9 +433,11 @@ app.post('/api/reset', (req, res) => {
     queueX = [];
     queueX2 = [];
     queueX3 = [];
+    queueX4 = [];
     saveQueue(queueX, 'X');
     saveQueue(queueX2, 'X2');
     saveQueue(queueX3, 'X3');
+    saveQueue(queueX4, 'X4');
     results.push('Cleared all queues');
     console.log('🗑️  Cleared all queues');
   }
@@ -646,7 +646,7 @@ app.post('/api/render', async (req, res) => {
         totalWordCount: wordCount,
       },
       timeoutInMilliseconds: 120000,
-      concurrency: 1,
+      concurrency: 2,
       chromiumOptions: {
         args: ['--no-sandbox', '--disable-dev-shm-usage'],
       },
@@ -672,6 +672,11 @@ app.post('/api/render', async (req, res) => {
                           process.env.X3_API_SECRET &&
                           process.env.X3_ACCESS_TOKEN &&
                           process.env.X3_ACCESS_SECRET);
+      } else if (account === 'X4') {
+        hasXApiCreds = !!(process.env.X4_API_KEY &&
+                          process.env.X4_API_SECRET &&
+                          process.env.X4_ACCESS_TOKEN &&
+                          process.env.X4_ACCESS_SECRET);
       } else {
         hasXApiCreds = !!(process.env.X_API_KEY &&
                           process.env.X_API_SECRET &&
@@ -770,6 +775,7 @@ async function processQueue() {
     { queue: queueX, queueType: 'X', readyItems: queueX.filter(item => item.status === 'pending' && item.scheduledTime <= now) },
     { queue: queueX2, queueType: 'X2', readyItems: queueX2.filter(item => item.status === 'pending' && item.scheduledTime <= now) },
     { queue: queueX3, queueType: 'X3', readyItems: queueX3.filter(item => item.status === 'pending' && item.scheduledTime <= now) },
+    { queue: queueX4, queueType: 'X4', readyItems: queueX4.filter(item => item.status === 'pending' && item.scheduledTime <= now) },
   ];
 
   for (const { queue, queueType, readyItems } of queuesToProcess) {
@@ -937,7 +943,7 @@ async function processQueue() {
           totalWordCount: wordCount,
         },
         timeoutInMilliseconds: 120000,
-        concurrency: 1,
+        concurrency: 2,
         chromiumOptions: {
           args: ['--no-sandbox', '--disable-dev-shm-usage'],
         },
@@ -964,6 +970,11 @@ async function processQueue() {
                             process.env.X3_API_SECRET &&
                             process.env.X3_ACCESS_TOKEN &&
                             process.env.X3_ACCESS_SECRET);
+        } else if (account === 'X4') {
+          hasXApiCreds = !!(process.env.X4_API_KEY &&
+                            process.env.X4_API_SECRET &&
+                            process.env.X4_ACCESS_TOKEN &&
+                            process.env.X4_ACCESS_SECRET);
         } else {
           hasXApiCreds = !!(process.env.X_API_KEY &&
                             process.env.X_API_SECRET &&
