@@ -161,11 +161,12 @@ function normalizeUrl(url) {
 let queueX = loadQueue('X');
 let queueX2 = loadQueue('X2');
 let queueX3 = loadQueue('X3');
-let queueX4 = loadQueue('X4');
+// let queueX4 = loadQueue('X4'); // X4 disabled for now
+let queueX4 = [];
 console.log(`📋 Loaded ${queueX.length} items from X queue`);
 console.log(`📋 Loaded ${queueX2.length} items from X2 queue`);
 console.log(`📋 Loaded ${queueX3.length} items from X3 queue`);
-console.log(`📋 Loaded ${queueX4.length} items from X4 queue`);
+console.log(`📋 X4 disabled`);
 
 // Create tRPC client
 const trpcClient = createTRPCProxyClient({
@@ -223,7 +224,7 @@ function getAutoAccount() {
   const secondaryAccounts = [
     { account: 'X2', queue: queueX2 },
     { account: 'X3', queue: queueX3 },
-    { account: 'X4', queue: queueX4 },
+    // { account: 'X4', queue: queueX4 }, // X4 disabled for now
   ];
 
   for (const { account, queue } of secondaryAccounts) {
