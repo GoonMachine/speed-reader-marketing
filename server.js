@@ -237,7 +237,11 @@ function getAutoAccount() {
   }
 
   slots.sort((a, b) => a.nextSlot - b.nextSlot);
-  return slots[0];
+
+  // If multiple accounts have the same earliest slot, pick randomly among them
+  const earliest = slots[0].nextSlot;
+  const tied = slots.filter(s => s.nextSlot === earliest);
+  return tied[Math.floor(Math.random() * tied.length)];
 }
 
 // Queue endpoint - Add article to queue
@@ -646,10 +650,6 @@ app.post('/api/render', async (req, res) => {
         totalWordCount: wordCount,
       },
       timeoutInMilliseconds: 120000,
-      concurrency: 2,
-      chromiumOptions: {
-        args: ['--no-sandbox', '--disable-dev-shm-usage'],
-      },
     });
 
     console.log(`✅ Video rendered: ${outputLocation}`);
@@ -943,10 +943,6 @@ async function processQueue() {
           totalWordCount: wordCount,
         },
         timeoutInMilliseconds: 120000,
-        concurrency: 2,
-        chromiumOptions: {
-          args: ['--no-sandbox', '--disable-dev-shm-usage'],
-        },
       });
 
       console.log(`✅ Video rendered: ${outputLocation}`);
