@@ -615,6 +615,7 @@ app.post('/api/render', async (req, res) => {
         title,
         totalWordCount: wordCount,
       },
+      timeoutInMilliseconds: 120000,
     });
 
     console.log(`✅ Video rendered: ${outputLocation}`);
@@ -901,6 +902,7 @@ async function processQueue() {
           title,
           totalWordCount: wordCount,
         },
+        timeoutInMilliseconds: 120000,
       });
 
       console.log(`✅ Video rendered: ${outputLocation}`);
