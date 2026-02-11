@@ -195,13 +195,35 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Rendering server is running' });
 });
 
+// Check if an account has already been used today (has a pending, processing, or completed item today)
+function hasPostedToday(queue) {
+  const now = new Date();
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  return queue.some(item => {
+    const itemTime = item.completedAt || item.scheduledTime || item.createdAt;
+    return itemTime >= startOfDay && (item.status === 'pending' || item.status === 'processing' || item.status === 'completed');
+  });
+}
+
 // Pick the account whose queue has the earliest next available slot
+// X2 and X3 are limited to 1 post per day; everything else routes to X
 function getAutoAccount() {
   const slots = [
     { account: 'X', queue: queueX, nextSlot: getNextAvailableSlot(queueX) },
-    { account: 'X2', queue: queueX2, nextSlot: getNextAvailableSlot(queueX2) },
-    { account: 'X3', queue: queueX3, nextSlot: getNextAvailableSlot(queueX3) },
   ];
+
+  // Only include X2/X3 if they haven't posted today
+  if (!hasPostedToday(queueX2)) {
+    slots.push({ account: 'X2', queue: queueX2, nextSlot: getNextAvailableSlot(queueX2) });
+  } else {
+    console.log(`⏸️  X2 already has a post today, skipping`);
+  }
+  if (!hasPostedToday(queueX3)) {
+    slots.push({ account: 'X3', queue: queueX3, nextSlot: getNextAvailableSlot(queueX3) });
+  } else {
+    console.log(`⏸️  X3 already has a post today, skipping`);
+  }
+
   slots.sort((a, b) => a.nextSlot - b.nextSlot);
   return slots[0];
 }
@@ -223,9 +245,27 @@ app.post('/api/queue', async (req, res) => {
       queue = pick.queue;
       console.log(`🔀 Auto-routed to ${account} (next slot: ${new Date(pick.nextSlot).toLocaleTimeString()})`);
     } else if (account === 'X') queue = queueX;
-    else if (account === 'X2') queue = queueX2;
-    else if (account === 'X3') queue = queueX3;
-    else queue = queueX2; // Default to X2
+    else if (account === 'X2') {
+      // Enforce 1 post/day limit for X2 - fall back to X if already posted today
+      if (hasPostedToday(queueX2)) {
+        console.log(`⏸️  X2 already has a post today, routing to X instead`);
+        account = 'X';
+        queue = queueX;
+      } else {
+        queue = queueX2;
+      }
+    }
+    else if (account === 'X3') {
+      // Enforce 1 post/day limit for X3 - fall back to X if already posted today
+      if (hasPostedToday(queueX3)) {
+        console.log(`⏸️  X3 already has a post today, routing to X instead`);
+        account = 'X';
+        queue = queueX;
+      } else {
+        queue = queueX3;
+      }
+    }
+    else queue = queueX; // Default to X
 
     // Normalize URLs for duplicate checking
     const normalizedArticleUrl = normalizeUrl(articleUrl);
