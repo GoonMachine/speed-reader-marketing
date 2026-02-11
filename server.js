@@ -415,6 +415,36 @@ app.get('/api/queue', (req, res) => {
   });
 });
 
+// Clear processed URLs and optionally queues
+app.post('/api/reset', (req, res) => {
+  const { clearProcessedUrls = true, clearQueues = false } = req.body || {};
+  const results = [];
+
+  if (clearProcessedUrls) {
+    const processedUrlsPath = path.join(DATA_DIR, "processed-urls.json");
+    try {
+      fs.writeFileSync(processedUrlsPath, JSON.stringify({ urls: [] }, null, 2));
+      results.push('Cleared processed URLs');
+      console.log('🗑️  Cleared processed-urls.json');
+    } catch (error) {
+      results.push(`Failed to clear processed URLs: ${error.message}`);
+    }
+  }
+
+  if (clearQueues) {
+    queueX = [];
+    queueX2 = [];
+    queueX3 = [];
+    saveQueue(queueX, 'X');
+    saveQueue(queueX2, 'X2');
+    saveQueue(queueX3, 'X3');
+    results.push('Cleared all queues');
+    console.log('🗑️  Cleared all queues');
+  }
+
+  res.json({ success: true, actions: results });
+});
+
 // Serve video files
 app.get('/api/video/:filename', (req, res) => {
   const { filename } = req.params;
