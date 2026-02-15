@@ -3,8 +3,14 @@ import { RSVPDemo } from "./compositions/RSVPDemo";
 import { RSVPiPhone } from "./compositions/RSVPiPhone";
 import { RSVPiPhoneZoom } from "./compositions/RSVPiPhoneZoom";
 import { RSVPiPhoneWithOutro } from "./compositions/RSVPiPhoneWithOutro";
+import { RSVPMinimal } from "./compositions/RSVPMinimal";
+import { RSVPMinimalVertical } from "./compositions/RSVPMinimalVertical";
+import { RSVPTerminal } from "./compositions/RSVPTerminal";
+import { RSVPTerminalVertical } from "./compositions/RSVPTerminalVertical";
 import { XShareSheetAnimation } from "./compositions/XShareSheetAnimation";
-import { tokenizeText, getPunctuationMultiplier } from "../lib/shared-rsvp";
+import { tokenizeText, getPunctuationMultiplier, calculateWordTimings } from "../lib/shared-rsvp";
+import { SPEED_READING_SCRIPT, WPM_SEGMENTS } from "../scripts/speed-reading-script";
+import { ALL_CHALLENGE_SCRIPTS } from "../scripts/challenge-scripts";
 
 const DEMO_TEXT = "Welcome to SpeedRead. This is a demonstration of RSVP speed reading technology. The red letter you see is called the Optimal Recognition Point, or ORP. Your eye naturally focuses on this point, allowing you to read faster without moving your eyes. This technique can help you read up to three times faster than traditional reading methods. Try it yourself and see the difference. Speed reading has been used by students, professionals, and anyone who wants to consume more content in less time.";
 const WPM = 500;
@@ -44,6 +50,47 @@ const outroVersionText = words.slice(0, outroVersionWordCount).join(" ");
 const actualReadingSeconds = cumulativeTime / 1000;
 const OUTRO_VERSION_TOTAL_SECONDS = actualReadingSeconds + OUTRO_VERSION_OUTRO_SECONDS;
 const outroVersionDuration = Math.ceil(OUTRO_VERSION_TOTAL_SECONDS * FPS);
+
+// Calculate duration for speed reading script with dynamic WPM
+const speedReadingWords = tokenizeText(SPEED_READING_SCRIPT);
+let speedReadingTotalTime = 0;
+
+for (let i = 0; i < speedReadingWords.length; i++) {
+  // Find current WPM for this word
+  let currentWPM = 300; // default
+  for (const segment of WPM_SEGMENTS) {
+    if (i >= segment.startWordIndex) {
+      currentWPM = segment.wpm;
+    }
+  }
+
+  const baseDelay = 60000 / currentWPM;
+  const multiplier = getPunctuationMultiplier(speedReadingWords[i]);
+  speedReadingTotalTime += baseDelay * multiplier;
+}
+
+const speedReadingDuration = Math.ceil((speedReadingTotalTime / 1000) * FPS);
+
+// Calculate durations for all challenge scripts
+function calcScriptDuration(text: string, segments: { startWordIndex: number; wpm: number }[], defaultWpm: number): number {
+  const w = tokenizeText(text);
+  let total = 0;
+  for (let i = 0; i < w.length; i++) {
+    let currentWPM = defaultWpm;
+    for (const seg of segments) {
+      if (i >= seg.startWordIndex) currentWPM = seg.wpm;
+    }
+    const d = 60000 / currentWPM;
+    const m = getPunctuationMultiplier(w[i]);
+    total += d * m;
+  }
+  return Math.ceil((total / 1000) * FPS);
+}
+
+const challengeDurations = ALL_CHALLENGE_SCRIPTS.map((s) => ({
+  ...s,
+  duration: calcScriptDuration(s.text, s.segments, s.segments[0]?.wpm || 300),
+}));
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -123,6 +170,126 @@ export const RemotionRoot: React.FC = () => {
         height={1920}
         defaultProps={{}}
       />
+      <Composition
+        id="RSVPMinimal"
+        component={RSVPMinimal}
+        durationInFrames={durationInFrames}
+        fps={FPS}
+        width={1080}
+        height={1080}
+        defaultProps={{
+          articleText: DEMO_TEXT,
+          wpm: WPM,
+        }}
+      />
+      <Composition
+        id="SpeedReadingChallenge"
+        component={RSVPMinimal}
+        durationInFrames={speedReadingDuration}
+        fps={FPS}
+        width={1080}
+        height={1080}
+        defaultProps={{
+          articleText: SPEED_READING_SCRIPT,
+          wpm: 300, // Starting WPM
+          wpmSegments: WPM_SEGMENTS, // Dynamic WPM changes
+        }}
+      />
+      <Composition
+        id="RSVPTerminal"
+        component={RSVPTerminal}
+        durationInFrames={durationInFrames}
+        fps={FPS}
+        width={1080}
+        height={1080}
+        defaultProps={{
+          articleText: DEMO_TEXT,
+          wpm: WPM,
+        }}
+      />
+      <Composition
+        id="TerminalChallenge"
+        component={RSVPTerminal}
+        durationInFrames={speedReadingDuration}
+        fps={FPS}
+        width={1080}
+        height={1080}
+        defaultProps={{
+          articleText: SPEED_READING_SCRIPT,
+          wpm: 300, // Starting WPM
+          wpmSegments: WPM_SEGMENTS, // Dynamic WPM changes
+        }}
+      />
+      <Composition
+        id="RSVPMinimalVertical"
+        component={RSVPMinimalVertical}
+        durationInFrames={durationInFrames}
+        fps={FPS}
+        width={1080}
+        height={1920}
+        defaultProps={{
+          articleText: DEMO_TEXT,
+          wpm: WPM,
+        }}
+      />
+      <Composition
+        id="VerticalChallenge"
+        component={RSVPMinimalVertical}
+        durationInFrames={speedReadingDuration}
+        fps={FPS}
+        width={1080}
+        height={1920}
+        defaultProps={{
+          articleText: SPEED_READING_SCRIPT,
+          wpm: 300, // Starting WPM
+          wpmSegments: WPM_SEGMENTS, // Dynamic WPM changes
+          title: "Can you keep up?",
+        }}
+      />
+      <Composition
+        id="RSVPTerminalVertical"
+        component={RSVPTerminalVertical}
+        durationInFrames={durationInFrames}
+        fps={FPS}
+        width={1080}
+        height={1920}
+        defaultProps={{
+          articleText: DEMO_TEXT,
+          wpm: WPM,
+        }}
+      />
+      <Composition
+        id="TerminalVerticalChallenge"
+        component={RSVPTerminalVertical}
+        durationInFrames={speedReadingDuration}
+        fps={FPS}
+        width={1080}
+        height={1920}
+        defaultProps={{
+          articleText: SPEED_READING_SCRIPT,
+          wpm: 300, // Starting WPM
+          wpmSegments: WPM_SEGMENTS, // Dynamic WPM changes
+          title: "SPEED TEST INITIATED",
+        }}
+      />
+      {/* Challenge script variations */}
+      {challengeDurations.map((s) => (
+        <Composition
+          key={s.id}
+          id={s.id}
+          component={s.style === "terminal" ? RSVPTerminalVertical : RSVPMinimalVertical}
+          durationInFrames={s.duration}
+          fps={FPS}
+          width={1080}
+          height={1920}
+          defaultProps={{
+            articleText: s.text,
+            wpm: s.segments[0]?.wpm || 300,
+            wpmSegments: s.segments,
+            title: s.title,
+          }}
+        />
+      ))}
     </>
   );
 };
