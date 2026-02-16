@@ -16,6 +16,9 @@ export interface ChallengeScript {
   text: string;
   segments: WPMSegment[];
   style: "minimal" | "terminal"; // Which component to use
+  format?: "standard" | "elimination" | "speedrun"; // defaults "standard"
+  categoryLabel?: string;   // Speedrun category label
+  attemptNumber?: number;   // Speedrun attempt counter
 }
 
 // ─────────────────────────────────────────────
