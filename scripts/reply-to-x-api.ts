@@ -51,6 +51,11 @@ if (account === 'X2') {
   API_SECRET = process.env.X4_API_SECRET;
   ACCESS_TOKEN = process.env.X4_ACCESS_TOKEN;
   ACCESS_SECRET = process.env.X4_ACCESS_SECRET;
+} else if (account === 'Xper') {
+  API_KEY = process.env.Xper_API_KEY;
+  API_SECRET = process.env.Xper_API_SECRET;
+  ACCESS_TOKEN = process.env.Xper_ACCESS_TOKEN;
+  ACCESS_SECRET = process.env.Xper_ACCESS_SECRET;
 } else if (account === 'X') {
   API_KEY = process.env.X_API_KEY;
   API_SECRET = process.env.X_API_SECRET;

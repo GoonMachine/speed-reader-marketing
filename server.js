@@ -81,6 +81,7 @@ const QUEUE_FILE_X = path.join(DATA_DIR, 'queue-x.json');
 const QUEUE_FILE_X2 = path.join(DATA_DIR, 'queue-x2.json');
 const QUEUE_FILE_X3 = path.join(DATA_DIR, 'queue-x3.json');
 const QUEUE_FILE_X4 = path.join(DATA_DIR, 'queue-x4.json');
+const QUEUE_FILE_XPER = path.join(DATA_DIR, 'queue-xper.json');
 const MIN_SPACING_MS = 20 * 60 * 1000; // 20 minutes between videos per account
 
 // Get queue file path for account
@@ -89,6 +90,7 @@ function getQueueFile(account) {
   if (account === 'X2') return QUEUE_FILE_X2;
   if (account === 'X3') return QUEUE_FILE_X3;
   if (account === 'X4') return QUEUE_FILE_X4;
+  if (account === 'Xper') return QUEUE_FILE_XPER;
   return QUEUE_FILE_X; // Default to X
 }
 
@@ -162,10 +164,12 @@ let queueX = loadQueue('X');
 let queueX2 = loadQueue('X2');
 let queueX3 = loadQueue('X3');
 let queueX4 = loadQueue('X4');
+let queueXper = loadQueue('Xper');
 console.log(`📋 Loaded ${queueX.length} items from X queue`);
 console.log(`📋 Loaded ${queueX2.length} items from X2 queue`);
 console.log(`📋 Loaded ${queueX3.length} items from X3 queue`);
 console.log(`📋 Loaded ${queueX4.length} items from X4 queue`);
+console.log(`📋 Loaded ${queueXper.length} items from Xper queue`);
 
 // Create tRPC client
 const trpcClient = createTRPCProxyClient({
@@ -260,6 +264,8 @@ app.post('/api/queue', async (req, res) => {
       account = pick.account;
       queue = pick.queue;
       console.log(`🔀 Auto-routed to ${account} (next slot: ${new Date(pick.nextSlot).toLocaleTimeString()})`);
+    } else if (account === 'Xper') {
+      queue = queueXper;
     } else if (account === 'X') queue = queueX;
     else if (['X2', 'X3', 'X4'].includes(account)) {
       const queues = { X2: queueX2, X3: queueX3, X4: queueX4 };
@@ -280,7 +286,7 @@ app.post('/api/queue', async (req, res) => {
     const normalizedReplyUrl = normalizeUrl(replyToUrl || articleUrl);
 
     // Check ALL queues to prevent duplicate processing across accounts
-    const allQueueItems = [...queueX, ...queueX2, ...queueX3, ...queueX4];
+    const allQueueItems = [...queueX, ...queueX2, ...queueX3, ...queueX4, ...queueXper];
 
     // Check if same article URL already in any queue
     const existingByArticle = allQueueItems.find(item =>
@@ -354,6 +360,7 @@ app.post('/api/queue', async (req, res) => {
     else if (account === 'X2') queueX2 = queue;
     else if (account === 'X3') queueX3 = queue;
     else if (account === 'X4') queueX4 = queue;
+    else if (account === 'Xper') queueXper = queue;
 
     saveQueue(queue, account);
 
@@ -380,7 +387,7 @@ app.post('/api/queue', async (req, res) => {
 
 // Get queue status (combined from all accounts)
 app.get('/api/queue', (req, res) => {
-  const allItems = [...queueX, ...queueX2, ...queueX3, ...queueX4];
+  const allItems = [...queueX, ...queueX2, ...queueX3, ...queueX4, ...queueXper];
   const pending = allItems.filter(i => i.status === 'pending');
   const processing = allItems.filter(i => i.status === 'processing');
   const completed = allItems.filter(i => i.status === 'completed');
@@ -404,6 +411,7 @@ app.get('/api/queue', (req, res) => {
       X2: accountStats(queueX2),
       X3: accountStats(queueX3),
       X4: accountStats(queueX4),
+      Xper: accountStats(queueXper),
     },
     items: allItems.map(item => ({
       id: item.id,
@@ -438,10 +446,12 @@ app.post('/api/reset', (req, res) => {
     queueX2 = [];
     queueX3 = [];
     queueX4 = [];
+    queueXper = [];
     saveQueue(queueX, 'X');
     saveQueue(queueX2, 'X2');
     saveQueue(queueX3, 'X3');
     saveQueue(queueX4, 'X4');
+    saveQueue(queueXper, 'Xper');
     results.push('Cleared all queues');
     console.log('🗑️  Cleared all queues');
   }
@@ -677,6 +687,11 @@ app.post('/api/render', async (req, res) => {
                           process.env.X4_API_SECRET &&
                           process.env.X4_ACCESS_TOKEN &&
                           process.env.X4_ACCESS_SECRET);
+      } else if (account === 'Xper') {
+        hasXApiCreds = !!(process.env.Xper_API_KEY &&
+                          process.env.Xper_API_SECRET &&
+                          process.env.Xper_ACCESS_TOKEN &&
+                          process.env.Xper_ACCESS_SECRET);
       } else {
         hasXApiCreds = !!(process.env.X_API_KEY &&
                           process.env.X_API_SECRET &&
@@ -776,6 +791,7 @@ async function processQueue() {
     { queue: queueX2, queueType: 'X2', readyItems: queueX2.filter(item => item.status === 'pending' && item.scheduledTime <= now) },
     { queue: queueX3, queueType: 'X3', readyItems: queueX3.filter(item => item.status === 'pending' && item.scheduledTime <= now) },
     { queue: queueX4, queueType: 'X4', readyItems: queueX4.filter(item => item.status === 'pending' && item.scheduledTime <= now) },
+    { queue: queueXper, queueType: 'Xper', readyItems: queueXper.filter(item => item.status === 'pending' && item.scheduledTime <= now) },
   ];
 
   for (const { queue, queueType, readyItems } of queuesToProcess) {
@@ -971,6 +987,11 @@ async function processQueue() {
                             process.env.X4_API_SECRET &&
                             process.env.X4_ACCESS_TOKEN &&
                             process.env.X4_ACCESS_SECRET);
+        } else if (account === 'Xper') {
+          hasXApiCreds = !!(process.env.Xper_API_KEY &&
+                            process.env.Xper_API_SECRET &&
+                            process.env.Xper_ACCESS_TOKEN &&
+                            process.env.Xper_ACCESS_SECRET);
         } else {
           hasXApiCreds = !!(process.env.X_API_KEY &&
                             process.env.X_API_SECRET &&

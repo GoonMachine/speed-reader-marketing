@@ -328,9 +328,27 @@ export default function Home() {
               >
                 X3
               </button>
+              <button
+                type="button"
+                onClick={() => setAccount('Xper')}
+                style={{
+                  flex: '1',
+                  padding: '12px 16px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  background: account === 'Xper' ? '#9333ea' : '#2a2a2a',
+                  color: '#fff',
+                  border: account === 'Xper' ? '2px solid #9333ea' : '2px solid #3a3a3a',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+              >
+                Xper
+              </button>
             </div>
             <p style={{ fontSize: '13px', color: '#666', marginTop: '8px' }}>
-              Auto routes to whichever account has the earliest open slot
+              Auto routes to whichever account has the earliest open slot. Xper is manual-only.
             </p>
           </div>
 
