@@ -335,13 +335,13 @@ export const RemotionRoot: React.FC = () => {
             fadeDurationSeconds: FADE_DURATION,
             hookText: s.hook,
             musicFile: "bg-music.mp3",
-            musicDropSeconds: 33.5,
+            musicDropSeconds: 34.8,
             musicVolume: 0.6,
             articleText: s.text,
             wpm: s.segments[0]?.wpm || 300,
             wpmSegments: s.segments,
             title: s.title,
-            style: s.style,
+            style: "minimal",
           }}
         />
       ))}
