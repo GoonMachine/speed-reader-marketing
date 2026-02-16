@@ -6,7 +6,7 @@ export default function Home() {
   const [articleUrl, setArticleUrl] = useState('');
   const [replyToUrl, setReplyToUrl] = useState('');
   const [wpm, setWpm] = useState('500');
-  const [composition, setComposition] = useState('random');
+  const [composition, setComposition] = useState('RSVPMinimal');
   const [account, setAccount] = useState('auto');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
@@ -28,7 +28,7 @@ export default function Home() {
           articleUrl,
           replyToUrl,
           wpm: parseInt(wpm),
-          composition: composition !== 'random' ? composition : undefined,
+          composition,
           account,
         }),
       });
@@ -172,77 +172,6 @@ export default function Home() {
                 outline: 'none',
               }}
             />
-          </div>
-
-          <div style={{ marginBottom: '32px' }}>
-            <label style={{
-              display: 'block',
-              fontSize: '14px',
-              fontWeight: '600',
-              color: '#fff',
-              marginBottom: '12px'
-            }}>
-              Video Template
-            </label>
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                onClick={() => setComposition('random')}
-                style={{
-                  flex: '1 1 auto',
-                  padding: '12px 16px',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  background: composition === 'random' ? '#E53935' : '#2a2a2a',
-                  color: '#fff',
-                  border: composition === 'random' ? '2px solid #E53935' : '2px solid #3a3a3a',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                }}
-              >
-                🎲 Random
-              </button>
-              <button
-                type="button"
-                onClick={() => setComposition('RSVPiPhoneZoom')}
-                style={{
-                  flex: '1 1 auto',
-                  padding: '12px 16px',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  background: composition === 'RSVPiPhoneZoom' ? '#E53935' : '#2a2a2a',
-                  color: '#fff',
-                  border: composition === 'RSVPiPhoneZoom' ? '2px solid #E53935' : '2px solid #3a3a3a',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                }}
-              >
-                🔍 Zoom (Full)
-              </button>
-              <button
-                type="button"
-                onClick={() => setComposition('RSVPiPhoneWithOutro')}
-                style={{
-                  flex: '1 1 auto',
-                  padding: '12px 16px',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  background: composition === 'RSVPiPhoneWithOutro' ? '#E53935' : '#2a2a2a',
-                  color: '#fff',
-                  border: composition === 'RSVPiPhoneWithOutro' ? '2px solid #E53935' : '2px solid #3a3a3a',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                }}
-              >
-                ⚡ Short (6.5s)
-              </button>
-            </div>
-            <p style={{ fontSize: '13px', color: '#666', marginTop: '8px' }}>
-              Zoom: Full article with zoom animation • Short: 6.5s teaser with outro
-            </p>
           </div>
 
           <div style={{ marginBottom: '32px' }}>

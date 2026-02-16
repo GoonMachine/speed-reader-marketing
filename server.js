@@ -508,49 +508,13 @@ app.post('/api/render', async (req, res) => {
     // Calculate how many words we can fit in the max duration
     const maxWordsForDuration = Math.floor(MAX_VIDEO_SECONDS * wpm / 60);
 
-    // Define available compositions
-    const compositions = [
-      {
-        id: 'RSVPiPhoneZoom',
-        name: 'Zoom (no outro)',
-        useFullArticle: true,
-      },
-      {
-        id: 'RSVPiPhoneWithOutro',
-        name: 'With outro',
-        useFullArticle: false,
-        targetReadingSeconds: 3.5,  // Target ~3.5 seconds of reading (reduced to make room for outro)
-        outroDurationSeconds: 3.5,  // 3.5 seconds for outro animation
-      },
-      {
-        id: 'RSVPMinimal',
-        name: 'Minimal (viral format)',
-        useFullArticle: true,
-      },
-      {
-        id: 'RSVPTerminal',
-        name: 'Terminal/Hacker format',
-        useFullArticle: true,
-      },
-      {
-        id: 'RSVPMinimalVertical',
-        name: 'Minimal Vertical (TikTok)',
-        useFullArticle: true,
-      }
-    ];
-
-    // Use specified composition or randomly choose
-    let selectedComp;
-    if (composition) {
-      selectedComp = compositions.find(c => c.id === composition);
-      if (!selectedComp) {
-        return res.status(400).json({ error: `Invalid composition: ${composition}` });
-      }
-      console.log(`🎯 Using selected template: ${selectedComp.name}`);
-    } else {
-      selectedComp = compositions[Math.floor(Math.random() * compositions.length)];
-      console.log(`🎲 Randomly selected: ${selectedComp.name}`);
-    }
+    // Only use Minimal (viral format) for X queue
+    const selectedComp = {
+      id: 'RSVPMinimal',
+      name: 'Minimal (viral format)',
+      useFullArticle: true,
+    };
+    console.log(`🎯 Using template: ${selectedComp.name}`);
 
     let finalContent, finalWordCount, totalSeconds;
 
@@ -836,39 +800,13 @@ async function processQueue() {
       const fps = 30;
       const MAX_VIDEO_SECONDS = 115;
 
-      // Define available compositions
-      const compositions = [
-        {
-          id: 'RSVPiPhoneZoom',
-          name: 'Zoom (no outro)',
-          useFullArticle: true,
-        },
-        {
-          id: 'RSVPiPhoneWithOutro',
-          name: 'With outro',
-          useFullArticle: false,
-          targetReadingSeconds: 3.5,
-          outroDurationSeconds: 3.5,
-        },
-        {
-          id: 'RSVPMinimal',
-          name: 'Minimal (viral format)',
-          useFullArticle: true,
-        }
-      ];
-
-      // Use specified composition or randomly choose
-      let selectedComp;
-      if (composition) {
-        selectedComp = compositions.find(c => c.id === composition);
-        if (!selectedComp) {
-          throw new Error(`Invalid composition: ${composition}`);
-        }
-        console.log(`🎯 Using selected template: ${selectedComp.name}`);
-      } else {
-        selectedComp = compositions[Math.floor(Math.random() * compositions.length)];
-        console.log(`🎲 Randomly selected: ${selectedComp.name}`);
-      }
+      // Only use Minimal (viral format) for X queue
+      const selectedComp = {
+        id: 'RSVPMinimal',
+        name: 'Minimal (viral format)',
+        useFullArticle: true,
+      };
+      console.log(`🎯 Using template: ${selectedComp.name}`);
 
       let finalContent, finalWordCount, totalSeconds;
 
