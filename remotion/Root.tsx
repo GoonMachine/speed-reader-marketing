@@ -8,6 +8,7 @@ import { RSVPMinimalVertical } from "./compositions/RSVPMinimalVertical";
 import { RSVPTerminal } from "./compositions/RSVPTerminal";
 import { RSVPTerminalVertical } from "./compositions/RSVPTerminalVertical";
 import { XShareSheetAnimation } from "./compositions/XShareSheetAnimation";
+import { ScenicIntroVertical } from "./compositions/ScenicIntroVertical";
 import { tokenizeText, getPunctuationMultiplier, calculateWordTimings } from "../lib/shared-rsvp";
 import { SPEED_READING_SCRIPT, WPM_SEGMENTS } from "../scripts/speed-reading-script";
 import { ALL_CHALLENGE_SCRIPTS } from "../scripts/challenge-scripts";
@@ -92,6 +93,33 @@ const challengeDurations = [...ALL_CHALLENGE_SCRIPTS, ...WEEK2_CHALLENGE_SCRIPTS
   ...s,
   duration: calcScriptDuration(s.text, s.segments, s.segments[0]?.wpm || 300),
 }));
+
+// Scenic intro pairings: each week 2 script gets a nature clip intro
+const INTRO_DURATION = 3; // seconds of scenic footage
+const FADE_DURATION = 0.8; // crossfade seconds
+const introFrames = Math.ceil(INTRO_DURATION * FPS);
+
+const scenicPairings = [
+  { scriptId: "TypoglycemiaTest", clip: "scenic-09-mountain-sunset.mp4", hook: "Raed tihs.\nYou jsut did." },
+  { scriptId: "BookClubBluff", clip: "scenic-03-tree-field.mp4", hook: "book club in 3 hours\nyou read 0 pages\nyou're cooked" },
+  { scriptId: "TheyDontWantYou", clip: "scenic-01-icicles.mp4", hook: "You weren't supposed\nto see this." },
+  { scriptId: "SaccadeScience", clip: "scenic-05-mountain-lake.mp4", hook: "Read this\nwithout moving your eyes." },
+  { scriptId: "TextbookRevenge", clip: "scenic-07-sunflower-sunset.mp4", hook: "$400 on textbooks.\nNever opened them." },
+  { scriptId: "OptimalRecognitionPoint", clip: "scenic-06-wildflowers.mp4", hook: "You're reading\nevery word wrong." },
+  { scriptId: "SundayScaries", clip: "scenic-08-golden-field.mp4", hook: "Sunday night.\nDue tomorrow.\nHaven't started." },
+];
+
+const scenicCompositions = scenicPairings.map((pairing) => {
+  const script = WEEK2_CHALLENGE_SCRIPTS.find((s) => s.id === pairing.scriptId)!;
+  const rsvpDuration = calcScriptDuration(script.text, script.segments, script.segments[0]?.wpm || 300);
+  return {
+    ...script,
+    compositionId: `Scenic-${script.id}`,
+    clip: pairing.clip,
+    hook: pairing.hook,
+    totalDuration: introFrames + rsvpDuration,
+  };
+});
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -288,6 +316,32 @@ export const RemotionRoot: React.FC = () => {
             wpm: s.segments[0]?.wpm || 300,
             wpmSegments: s.segments,
             title: s.title,
+          }}
+        />
+      ))}
+      {/* Scenic intro versions — nature clip fades into RSVP */}
+      {scenicCompositions.map((s) => (
+        <Composition
+          key={s.compositionId}
+          id={s.compositionId}
+          component={ScenicIntroVertical}
+          durationInFrames={s.totalDuration}
+          fps={FPS}
+          width={1080}
+          height={1920}
+          defaultProps={{
+            scenicClip: s.clip,
+            introDurationSeconds: INTRO_DURATION,
+            fadeDurationSeconds: FADE_DURATION,
+            hookText: s.hook,
+            musicFile: "bg-music.mp3",
+            musicDropSeconds: 33.5,
+            musicVolume: 0.6,
+            articleText: s.text,
+            wpm: s.segments[0]?.wpm || 300,
+            wpmSegments: s.segments,
+            title: s.title,
+            style: s.style,
           }}
         />
       ))}
