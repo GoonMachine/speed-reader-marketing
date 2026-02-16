@@ -9,10 +9,12 @@ import { RSVPTerminal } from "./compositions/RSVPTerminal";
 import { RSVPTerminalVertical } from "./compositions/RSVPTerminalVertical";
 import { XShareSheetAnimation } from "./compositions/XShareSheetAnimation";
 import { ScenicIntroVertical } from "./compositions/ScenicIntroVertical";
+import { RSVPEliminationVertical } from "./compositions/RSVPEliminationVertical";
 import { tokenizeText, getPunctuationMultiplier, calculateWordTimings } from "../lib/shared-rsvp";
 import { SPEED_READING_SCRIPT, WPM_SEGMENTS } from "../scripts/speed-reading-script";
 import { ALL_CHALLENGE_SCRIPTS } from "../scripts/challenge-scripts";
 import { WEEK2_CHALLENGE_SCRIPTS } from "../scripts/challenge-scripts-week2";
+import { WEEK3_CHALLENGE_SCRIPTS } from "../scripts/challenge-scripts-week3";
 
 const DEMO_TEXT = "Welcome to SpeedRead. This is a demonstration of RSVP speed reading technology. The red letter you see is called the Optimal Recognition Point, or ORP. Your eye naturally focuses on this point, allowing you to read faster without moving your eyes. This technique can help you read up to three times faster than traditional reading methods. Try it yourself and see the difference. Speed reading has been used by students, professionals, and anyone who wants to consume more content in less time.";
 const WPM = 500;
@@ -89,7 +91,7 @@ function calcScriptDuration(text: string, segments: { startWordIndex: number; wp
   return Math.ceil((total / 1000) * FPS);
 }
 
-const challengeDurations = [...ALL_CHALLENGE_SCRIPTS, ...WEEK2_CHALLENGE_SCRIPTS].map((s) => ({
+const challengeDurations = [...ALL_CHALLENGE_SCRIPTS, ...WEEK2_CHALLENGE_SCRIPTS, ...WEEK3_CHALLENGE_SCRIPTS].map((s) => ({
   ...s,
   duration: calcScriptDuration(s.text, s.segments, s.segments[0]?.wpm || 300),
 }));
@@ -302,23 +304,34 @@ export const RemotionRoot: React.FC = () => {
         }}
       />
       {/* Challenge script variations */}
-      {challengeDurations.map((s) => (
-        <Composition
-          key={s.id}
-          id={s.id}
-          component={s.style === "terminal" ? RSVPTerminalVertical : RSVPMinimalVertical}
-          durationInFrames={s.duration}
-          fps={FPS}
-          width={1080}
-          height={1920}
-          defaultProps={{
-            articleText: s.text,
-            wpm: s.segments[0]?.wpm || 300,
-            wpmSegments: s.segments,
-            title: s.title,
-          }}
-        />
-      ))}
+      {challengeDurations.map((s) => {
+        const format = ("format" in s ? s.format : undefined) || "standard";
+        let ComponentToUse: React.FC<any>;
+        if (format === "elimination") {
+          ComponentToUse = RSVPEliminationVertical;
+        } else if (s.style === "terminal") {
+          ComponentToUse = RSVPTerminalVertical;
+        } else {
+          ComponentToUse = RSVPMinimalVertical;
+        }
+        return (
+          <Composition
+            key={s.id}
+            id={s.id}
+            component={ComponentToUse}
+            durationInFrames={s.duration}
+            fps={FPS}
+            width={1080}
+            height={1920}
+            defaultProps={{
+              articleText: s.text,
+              wpm: s.segments[0]?.wpm || 300,
+              wpmSegments: s.segments,
+              title: s.title,
+            }}
+          />
+        );
+      })}
       {/* Scenic intro versions — nature clip fades into RSVP */}
       {scenicCompositions.map((s) => (
         <Composition
