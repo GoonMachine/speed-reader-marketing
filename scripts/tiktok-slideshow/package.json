@@ -1,0 +1,12 @@
+{
+  "name": "tiktok-slideshow",
+  "type": "module",
+  "dependencies": {
+    "@google/genai": "latest",
+    "canvas": "^3.1.0",
+    "dotenv": "^16.4.7"
+  },
+  "trustedDependencies": [
+    "protobufjs"
+  ]
+}
