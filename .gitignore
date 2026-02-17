@@ -5,6 +5,8 @@ node_modules/
 # Environment variables
 .env
 .env.local
+*.env
+.env.*
 
 # X.com authentication (sensitive!)
 x-cookies.json
@@ -30,7 +32,6 @@ out/
 
 # Next.js
 .next/
-out/
 
 # TypeScript
 *.tsbuildinfo
@@ -53,3 +54,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 .vercel
+
+# TikTok slideshow
+scripts/tiktok-slideshow/output/
+.playwright-mcp/
